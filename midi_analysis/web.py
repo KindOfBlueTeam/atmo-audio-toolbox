@@ -380,7 +380,7 @@ def create_app():
 
     @app.errorhandler(413)
     def request_entity_too_large(error):
-        return jsonify({'error': 'File too large. Maximum size is 16MB'}), 413
+        return jsonify({'error': 'File too large. Maximum size is 100 MB'}), 413
 
     return app
 

@@ -9,6 +9,9 @@ import pyloudnorm as pyln
 
 NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
+_ANALYSIS_SR = 22_050      # resample all audio to this rate before analysis
+_MAX_ANALYSIS_SECS = 120   # cap expensive frame-level analyses at 2 minutes
+
 _MAJOR_PROFILE = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
 _MINOR_PROFILE = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
 _HARM_MINOR    = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 2.29, 4.50])
@@ -61,44 +64,50 @@ def _modal_flavor(dist: np.ndarray, tonic_pc: int) -> str:
 
 # ── Audio loader ──────────────────────────────────────────────────────────────
 
-def _load_audio(file_bytes: bytes) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
+def _load_audio(file_bytes: bytes) -> tuple[np.ndarray, np.ndarray, np.ndarray, int, int]:
     """
-    Load audio from raw bytes.
-    Returns (y_left, y_right, y_mono, sr) — all float32, shape (N,).
+    Load audio from raw bytes and resample to _ANALYSIS_SR.
+    Returns (y_left, y_right, y_mono, native_sr, analysis_sr) — all float32, shape (N,).
     Tries soundfile first (WAV/AIFF/FLAC/OGG), then librosa (MP3 via ffmpeg).
     """
     buf = io.BytesIO(file_bytes)
     try:
-        data, sr = sf.read(buf, always_2d=True, dtype='float32')
+        data, native_sr = sf.read(buf, always_2d=True, dtype='float32')
+        native_sr = int(native_sr)
         # soundfile returns (samples, channels)
-        y_mono = librosa.to_mono(data.T)
         y_left  = data[:, 0]
         y_right = data[:, 1] if data.shape[1] >= 2 else data[:, 0]
-        return y_left, y_right, y_mono, int(sr)
+        y_mono  = librosa.to_mono(data.T)
+        if native_sr != _ANALYSIS_SR:
+            y_mono  = librosa.resample(y_mono,  orig_sr=native_sr, target_sr=_ANALYSIS_SR)
+            y_left  = librosa.resample(y_left,  orig_sr=native_sr, target_sr=_ANALYSIS_SR)
+            y_right = librosa.resample(y_right, orig_sr=native_sr, target_sr=_ANALYSIS_SR)
+        return y_left, y_right, y_mono, native_sr, _ANALYSIS_SR
     except Exception:
         pass
 
     buf.seek(0)
-    y_lr, sr = librosa.load(buf, sr=None, mono=False)
+    y_lr, native_sr = librosa.load(buf, sr=_ANALYSIS_SR, mono=False)
+    native_sr = int(native_sr)
     if y_lr.ndim == 1:
-        return y_lr, y_lr, y_lr, int(sr)
+        return y_lr, y_lr, y_lr, native_sr, _ANALYSIS_SR
     y_left  = np.asarray(y_lr[0], dtype=np.float32)
     y_right = np.asarray(y_lr[1], dtype=np.float32)
     y_mono  = librosa.to_mono(y_lr)
-    return y_left, y_right, y_mono, int(sr)
+    return y_left, y_right, y_mono, native_sr, _ANALYSIS_SR
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
 
 def analyze_audio(file_bytes: bytes, filename: str) -> dict:
     """Load audio once, dispatch to all sub-analyzers, return JSON-ready dict."""
-    y_left, y_right, y_mono, sr = _load_audio(file_bytes)
+    y_left, y_right, y_mono, native_sr, sr = _load_audio(file_bytes)
 
     is_mono = bool(np.allclose(y_left, y_right, atol=1e-6))
     result: dict = {
         'file':             filename,
         'duration_seconds': round(len(y_mono) / sr, 2),
-        'sample_rate':      sr,
+        'sample_rate':      native_sr,
         'channels':         1 if is_mono else 2,
     }
 
@@ -114,15 +123,21 @@ def analyze_audio(file_bytes: bytes, filename: str) -> dict:
         except Exception as exc:
             result[key] = {'error': str(exc)}
 
-    _run('tonality',  _analyze_tonality,        y_mono, sr)
-    _run('bpm',       _analyze_bpm,             y_mono, sr)
-    _run('loudness',  _analyze_loudness,        y_left, y_right, y_mono, sr)
-    _run('frequency', _analyze_frequency,       y_mono, sr)
-    _run('stereo',    _analyze_stereo,          y_left, y_right)
-    _run('harmonic',  _analyze_harmonic,        y_mono, sr)
-    _run('bass',      _analyze_bass,            y_mono, sr, tonic_pc)
-    _run('structure', _analyze_structure,       y_mono, sr)
-    _run('optional',  _analyze_optional,        y_mono, sr)
+    # Trim to _MAX_ANALYSIS_SECS for expensive frame-level analyses so that
+    # very long files don't time out on the server. Loudness and structure use
+    # the full audio intentionally.
+    max_samples = int(_MAX_ANALYSIS_SECS * sr)
+    y_trim = y_mono[:max_samples]
+
+    _run('tonality',  _analyze_tonality,  y_trim, sr)
+    _run('bpm',       _analyze_bpm,       y_trim, sr)
+    _run('loudness',  _analyze_loudness,  y_left, y_right, y_mono, sr)
+    _run('frequency', _analyze_frequency, y_trim, sr)
+    _run('stereo',    _analyze_stereo,    y_left[:max_samples], y_right[:max_samples])
+    _run('harmonic',  _analyze_harmonic,  y_trim, sr)
+    _run('bass',      _analyze_bass,      y_trim, sr, tonic_pc)
+    _run('structure', _analyze_structure, y_mono, sr)
+    _run('optional',  _analyze_optional,  y_trim, sr)
 
     return result
 

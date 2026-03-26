@@ -232,7 +232,9 @@ class MIDIAnalysisApp {
             try {
                 result = await response.json();
             } catch {
-                throw new Error('Server returned an unreadable response');
+                if (response.status === 413) throw new Error('File too large for the server to accept');
+                if (response.status === 502 || response.status === 504) throw new Error('Server timed out — try a shorter file');
+                throw new Error(`Server returned an unreadable response (HTTP ${response.status})`);
             }
 
             if (!response.ok || result.error) {
@@ -737,7 +739,11 @@ class MIDIAnalysisApp {
         try {
             const response = await fetch('/api/analyze-audio', { method: 'POST', body: formData });
             let result;
-            try { result = await response.json(); } catch { throw new Error('Server returned an unreadable response'); }
+            try { result = await response.json(); } catch {
+                if (response.status === 413) throw new Error('File too large for the server to accept');
+                if (response.status === 502 || response.status === 504) throw new Error('Server timed out — try a shorter audio file');
+                throw new Error(`Server returned an unreadable response (HTTP ${response.status})`);
+            }
             if (!response.ok || result.error) throw new Error(result.error || 'Analysis failed');
             this.displayAudioResults(result);
         } catch (error) {
