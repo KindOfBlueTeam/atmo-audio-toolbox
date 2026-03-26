@@ -510,6 +510,16 @@ footer {
     font-size: 0.9rem;
 }
 
+footer a {
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+footer a:hover {
+    color: var(--text-primary);
+}
+
 /* Velocity Distribution Bar Chart */
 .vel-chart {
     display: flex;

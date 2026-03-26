@@ -3,26 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MIDI Analysis Studio</title>
+    <title>Atmo Music Studio</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🎼 MIDI Analysis Studio</h1>
+            <h1>🎼 Atmo Music Studio</h1>
             <p class="subtitle">Upload and analyze your MIDI or audio files instantly</p>
         </header>
 
         <!-- Tab Bar -->
         <div class="tab-bar">
-            <button class="tab-btn active" data-tab="midi">🎹 MIDI Analysis</button>
-            <button class="tab-btn" data-tab="audio">🎵 Audio Analysis</button>
+            <button class="tab-btn active" data-tab="audio">🎵 Audio Analysis</button>
+            <button class="tab-btn" data-tab="midi">🎹 MIDI Analysis</button>
         </div>
 
         <main>
 
             <!-- ═══════════════════════════ MIDI TAB ═══════════════════════════ -->
-            <div id="midiTab" class="tab-content">
+            <div id="midiTab" class="tab-content" style="display:none;">
 
                 <section class="upload-section">
                     <div class="upload-box" id="uploadBox">
@@ -32,6 +32,7 @@
                         <input type="file" id="midiInput" accept=".mid,.midi" hidden>
                         <button id="browseBtn" class="btn btn-primary">Choose File</button>
                         <p class="upload-hint">Need a MIDI file? Go <a href="https://freemidi.org/random" target="_blank" rel="noopener noreferrer">here</a>!</p>
+                        <p class="upload-hint">New to MIDI? Start <a href="https://theproaudiofiles.com/midi-basics/" target="_blank" rel="noopener noreferrer">here</a>!</p>
                     </div>
                     <div id="fileName" class="file-name" style="display: none;"></div>
                     <button id="analyzeBtn" class="btn btn-analyze" style="display: none;">Analyze</button>
@@ -153,7 +154,7 @@
 
 
             <!-- ══════════════════════════ AUDIO TAB ═══════════════════════════ -->
-            <div id="audioTab" class="tab-content" style="display:none;">
+            <div id="audioTab" class="tab-content">
 
                 <section class="upload-section">
                     <div class="upload-box" id="audioUploadBox">
@@ -330,7 +331,7 @@
         </main>
 
         <footer>
-            <p>MIDI Analysis Studio • Comprehensive musical analysis • No files stored on server</p>
+            <p>Comprehensive audio file and MIDI analysis • No files stored on server • © 2026 <a href="https://www.atmo-records.com" target="_blank" rel="noopener noreferrer">Atmo Records</a>. All rights reserved.</p>
         </footer>
     </div>
 

@@ -5,7 +5,7 @@ class MIDIAnalysisApp {
         this.midiFile  = null;
         this.audioFile = null;
         this.analysisResult = null;
-        this.activeTab = 'midi';
+        this.activeTab = 'audio';
 
         this.initializeElements();
         this.setupEventListeners();
