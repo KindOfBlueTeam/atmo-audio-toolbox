@@ -10,6 +10,10 @@ import numpy as np
 from flask import Flask, render_template, request, jsonify, send_file
 
 from .analyzer import MIDIAnalyzer
+from .audio_analyzer import analyze_audio
+
+_AUDIO_EXTENSIONS = {'.wav', '.aif', '.aiff', '.flac', '.ogg', '.mp3'}
+_AUDIO_MAX_BYTES  = 100 * 1024 * 1024  # 100 MB
 
 
 def _sanitize_midi_bytes(data: bytes) -> bytes:
@@ -41,7 +45,7 @@ def create_app():
         template_folder=str(Path(__file__).parent / 'templates'),
         static_folder=str(Path(__file__).parent / 'static'),
     )
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+    app.config['MAX_CONTENT_LENGTH'] = _AUDIO_MAX_BYTES  # covers audio uploads
 
     @app.after_request
     def set_security_headers(response):
@@ -177,6 +181,39 @@ def create_app():
         except Exception as exc:
             app.logger.error("Humanize failed: %s", exc, exc_info=True)
             return jsonify({'error': f'Humanization failed: {exc}'}), 400
+
+    @app.route('/api/analyze-audio', methods=['POST'])
+    def analyze_audio_file():
+        """
+        Analyze an uploaded audio file (WAV, AIFF, FLAC, OGG, MP3).
+        MP3 requires ffmpeg to be installed on the server.
+        Returns JSON with full analysis results.
+        """
+        if 'audio_file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+
+        file = request.files['audio_file']
+        if not file or file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+
+        safe_name = os.path.basename(file.filename)
+        ext = os.path.splitext(safe_name)[1].lower()
+        if ext not in _AUDIO_EXTENSIONS:
+            return jsonify({
+                'error': f'Unsupported format "{ext}". Use: {", ".join(sorted(_AUDIO_EXTENSIONS))}'
+            }), 400
+
+        try:
+            file_data = file.read()
+            if len(file_data) > _AUDIO_MAX_BYTES:
+                return jsonify({'error': 'File too large. Maximum size is 100 MB'}), 400
+
+            results = analyze_audio(file_data, safe_name)
+            return jsonify(results), 200
+
+        except Exception as exc:
+            app.logger.error("Audio analysis failed: %s", exc, exc_info=True)
+            return jsonify({'error': f'Analysis failed: {exc}'}), 400
 
     @app.route('/api/normalize-velocity', methods=['POST'])
     def normalize_velocity():

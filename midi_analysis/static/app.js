@@ -2,8 +2,10 @@
 
 class MIDIAnalysisApp {
     constructor() {
-        this.midiFile = null;
+        this.midiFile  = null;
+        this.audioFile = null;
         this.analysisResult = null;
+        this.activeTab = 'midi';
 
         this.initializeElements();
         this.setupEventListeners();
@@ -31,6 +33,19 @@ class MIDIAnalysisApp {
             humanizeTimingBtn: document.getElementById('humanizeTimingBtn'),
             humanizeTimingModal: document.getElementById('humanizeTimingModal'),
             cancelHumanizeTimingBtn: document.getElementById('cancelHumanizeTimingBtn'),
+            // Audio tab
+            audioUploadBox:       document.getElementById('audioUploadBox'),
+            audioInput:           document.getElementById('audioInput'),
+            audioBrowseBtn:       document.getElementById('audioBrowseBtn'),
+            audioFileName:        document.getElementById('audioFileName'),
+            audioAnalyzeBtn:      document.getElementById('audioAnalyzeBtn'),
+            audioLoadingSpinner:  document.getElementById('audioLoadingSpinner'),
+            audioResultsSection:  document.getElementById('audioResultsSection'),
+            audioErrorSection:    document.getElementById('audioErrorSection'),
+            audioErrorMessage:    document.getElementById('audioErrorMessage'),
+            audioRetryBtn:        document.getElementById('audioRetryBtn'),
+            audioAnalyzeAnotherBtn: document.getElementById('audioAnalyzeAnotherBtn'),
+            copyAudioJsonBtn:     document.getElementById('copyAudioJsonBtn'),
         };
     }
 
@@ -75,6 +90,45 @@ class MIDIAnalysisApp {
 
         this.elements.copyJsonBtn.addEventListener('click', () => {
             this.copyJsonToClipboard();
+        });
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.switchTab(btn.dataset.tab);
+            });
+        });
+
+        // Audio upload
+        this.elements.audioBrowseBtn.addEventListener('click', () => {
+            this.elements.audioInput.click();
+        });
+        this.elements.audioInput.addEventListener('change', (e) => {
+            this.handleAudioFileSelect(e.target.files[0]);
+        });
+        this.elements.audioUploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.elements.audioUploadBox.classList.add('dragover');
+        });
+        this.elements.audioUploadBox.addEventListener('dragleave', () => {
+            this.elements.audioUploadBox.classList.remove('dragover');
+        });
+        this.elements.audioUploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.elements.audioUploadBox.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) this.handleAudioFileSelect(e.dataTransfer.files[0]);
+        });
+        this.elements.audioAnalyzeBtn.addEventListener('click', () => this.analyzeAudioFile());
+        this.elements.audioAnalyzeAnotherBtn.addEventListener('click', () => this.resetAudio());
+        this.elements.audioRetryBtn.addEventListener('click', () => this.resetAudio());
+        this.elements.copyAudioJsonBtn.addEventListener('click', () => {
+            const json = document.getElementById('audioRawJSON').textContent;
+            navigator.clipboard.writeText(json).then(() => {
+                const btn = this.elements.copyAudioJsonBtn;
+                const orig = btn.textContent;
+                btn.textContent = '✓ Copied!';
+                setTimeout(() => { btn.textContent = orig; }, 2000);
+            });
         });
 
         // Error retry
@@ -638,6 +692,264 @@ class MIDIAnalysisApp {
         } else {
             return `${secs}s`;
         }
+    }
+
+    // ── Tab switching ─────────────────────────────────────────────────────────
+
+    switchTab(tab) {
+        this.activeTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        document.getElementById('midiTab').style.display  = tab === 'midi'  ? '' : 'none';
+        document.getElementById('audioTab').style.display = tab === 'audio' ? '' : 'none';
+    }
+
+    // ── Audio file handling ───────────────────────────────────────────────────
+
+    handleAudioFileSelect(file) {
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['wav', 'aif', 'aiff', 'flac', 'ogg', 'mp3'].includes(ext)) {
+            this.showAudioError('Please select an audio file (.wav, .aif, .aiff, .flac, .ogg, .mp3)');
+            return;
+        }
+        if (file.size > 100 * 1024 * 1024) {
+            this.showAudioError('File is too large. Maximum size is 100 MB');
+            return;
+        }
+        this.audioFile = file;
+        this.elements.audioFileName.textContent = `🎵 ${file.name} (${this.formatFileSize(file.size)})`;
+        this.elements.audioFileName.style.display = 'block';
+        this.elements.audioAnalyzeBtn.style.display = 'block';
+        this.hideAudioError();
+    }
+
+    async analyzeAudioFile() {
+        if (!this.audioFile) return;
+        const formData = new FormData();
+        formData.append('audio_file', this.audioFile);
+
+        this.elements.audioLoadingSpinner.style.display = 'block';
+        this.elements.audioResultsSection.style.display = 'none';
+        this.hideAudioError();
+
+        try {
+            const response = await fetch('/api/analyze-audio', { method: 'POST', body: formData });
+            let result;
+            try { result = await response.json(); } catch { throw new Error('Server returned an unreadable response'); }
+            if (!response.ok || result.error) throw new Error(result.error || 'Analysis failed');
+            this.displayAudioResults(result);
+        } catch (error) {
+            this.showAudioError(`Analysis error: ${error.message}`);
+        } finally {
+            this.elements.audioLoadingSpinner.style.display = 'none';
+        }
+    }
+
+    // ── Audio results display ─────────────────────────────────────────────────
+
+    displayAudioResults(r) {
+        document.querySelector('#audioTab .upload-section').style.display = 'none';
+        this.elements.audioResultsSection.style.display = 'block';
+
+        // File info
+        this._set('aResFile',     r.file);
+        this._set('aResDuration', this.formatDuration(r.duration_seconds));
+        this._set('aResSR',       `${r.sample_rate.toLocaleString()} Hz`);
+        this._set('aResChannels', r.channels === 1 ? 'Mono' : 'Stereo');
+
+        // Tonality
+        const ton = r.tonality || {};
+        if (!ton.error) {
+            this._set('aResKey',        ton.key       || 'N/A');
+            this._set('aResMode',       ton.mode      || 'N/A');
+            this._set('aResModalFlavor',ton.modal_flavor || 'N/A');
+            this._set('aResConfidence', ton.key_confidence != null ? `${ton.key_confidence}%` : 'N/A');
+            this._renderNoteChart('pitchHist', ton.pitch_class_histogram || {});
+            document.getElementById('pitchHistContainer').style.display = 'block';
+        }
+
+        // BPM
+        const bpm = r.bpm || {};
+        if (!bpm.error) {
+            this._set('aResBPM',      bpm.tempo_bpm != null ? `${bpm.tempo_bpm} BPM` : 'N/A');
+            this._set('aResBeats',    bpm.beat_count ?? 'N/A');
+            this._set('aResStability',bpm.tempo_stability_label || 'N/A');
+            this._set('aResDownbeat', bpm.downbeat_confidence != null ? `${bpm.downbeat_confidence}×` : 'N/A');
+        }
+
+        // Loudness
+        const loud = r.loudness || {};
+        if (!loud.error) {
+            this._set('aResLUFS',   loud.integrated_lufs  != null ? `${loud.integrated_lufs} LUFS` : 'N/A');
+            this._set('aResSTLUFS', loud.short_term_lufs  != null ? `${loud.short_term_lufs} LUFS` : 'N/A');
+            this._set('aResTruePeak', loud.true_peak_dbtp  != null ? `${loud.true_peak_dbtp} dBTP` : 'N/A');
+            this._set('aResRMS',    loud.rms_db           != null ? `${loud.rms_db} dB`   : 'N/A');
+            this._set('aResCrest',  loud.crest_factor_db  != null ? `${loud.crest_factor_db} dB`   : 'N/A');
+            this._set('aResDR',     loud.dynamic_range_dr != null ? `DR ${loud.dynamic_range_dr}`  : 'N/A');
+        }
+
+        // Frequency bands
+        const freq = r.frequency || {};
+        if (!freq.error) {
+            this._set('aResCentroid', freq.spectral_centroid_hz != null ? `${freq.spectral_centroid_hz.toLocaleString()} Hz` : 'N/A');
+            this._renderBandChart('freqBands', {
+                'Sub (20–60 Hz)':   freq.sub_20_60_pct,
+                'Low (60–250 Hz)':  freq.low_60_250_pct,
+                'Mid (250–2k Hz)':  freq.mid_250_2k_pct,
+                'High (2k–10k Hz)': freq.high_2k_10k_pct,
+                'Air (10k+ Hz)':    freq.air_10k_plus_pct,
+            }, '%');
+        }
+
+        // Stereo
+        const st = r.stereo || {};
+        if (!st.error) {
+            if (st.is_mono) {
+                this._set('aResWidth', 'N/A (Mono)');
+                this._set('aResMid',   '100%');
+                this._set('aResSide',  '0%');
+                this._set('aResPhase', '1.000');
+                this._set('aResMono',  'N/A (Mono)');
+            } else {
+                this._set('aResWidth', `${st.stereo_width_pct}%`);
+                this._set('aResMid',   `${st.mid_energy_pct}%`);
+                this._set('aResSide',  `${st.side_energy_pct}%`);
+                this._set('aResPhase', st.phase_correlation ?? 'N/A');
+                this._set('aResMono',  `${st.mono_compatibility_pct}% — ${st.mono_compatibility_label}`);
+                const fill = document.getElementById('stereoWidthFill');
+                if (fill) fill.style.width = `${st.stereo_width_pct}%`;
+                document.getElementById('stereoWidthBar').style.display = 'block';
+            }
+        }
+
+        // Harmonic
+        const harm = r.harmonic || {};
+        if (!harm.error) {
+            this._set('aResRoot',      harm.dominant_root || 'N/A');
+            this._set('aResRootStab',  harm.root_stability_pct != null ? `${harm.root_stability_pct}%` : 'N/A');
+            this._set('aResKeyDrift',  harm.key_drift ?? 'N/A');
+            this._set('aResVI',        harm.dominant_tonic_resolution_pct != null ? `${harm.dominant_tonic_resolution_pct}%` : 'N/A');
+            this._set('aResChords',    harm.chord_changes_per_min ?? 'N/A');
+        }
+
+        // Bass
+        const bass = r.bass || {};
+        if (!bass.error) {
+            this._set('aResBassNotes', (bass.dominant_bass_notes || []).join(', ') || 'N/A');
+            this._set('aResRootBass',  bass.root_bass_pct    != null ? `${bass.root_bass_pct}%`     : 'N/A');
+            this._set('aResNonRoot',   bass.non_root_bass_pct != null ? `${bass.non_root_bass_pct}%` : 'N/A');
+            this._set('aResSub',       bass.sub_consistency  || 'N/A');
+            this._renderNoteChart('bassHist', bass.bass_note_distribution || {});
+            document.getElementById('bassHistContainer').style.display = 'block';
+        }
+
+        // Structure
+        const struct = r.structure || {};
+        if (!struct.error) {
+            this._set('aResPeak',    struct.peak_energy_time_sec != null ? `${struct.peak_energy_time_sec}s` : 'N/A');
+            this._set('aResDensity', struct.density_onsets_per_sec != null ? `${struct.density_onsets_per_sec} onsets/s` : 'N/A');
+            this._renderEnergyCurve('energyCurve', struct.energy_curve || []);
+            this._renderSections('sectionsList', struct.sections || []);
+        }
+
+        // Optional
+        const opt = r.optional || {};
+        if (!opt.error) {
+            this._set('aResTransient',     opt.transient_density_per_min != null ? `${opt.transient_density_per_min}/min` : 'N/A');
+            this._set('aResFlux',          opt.spectral_flux ?? 'N/A');
+            this._set('aResHarmComplexity',opt.harmonic_complexity_label
+                ? `${opt.harmonic_complexity_label} (${opt.harmonic_complexity_pcs} avg PCs)`
+                : 'N/A');
+        }
+
+        // Raw JSON
+        document.getElementById('audioRawJSON').textContent = JSON.stringify(r, null, 2);
+
+        requestAnimationFrame(() => {
+            this.elements.audioResultsSection.querySelector('.results-container').scrollIntoView({ behavior: 'smooth' });
+        });
+    }
+
+    // ── Audio render helpers ──────────────────────────────────────────────────
+
+    _set(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    _renderNoteChart(containerId, histogram) {
+        const order = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+        const values = order.map(n => histogram[n] || 0);
+        const max = Math.max(...values, 0.001);
+        const html = order.map((note, i) => {
+            const pct = Math.round(values[i] / max * 100);
+            return `<div class="vel-bar-row">
+                <span class="vel-label">${note}</span>
+                <div class="vel-bar-bg"><div class="vel-bar-fill" style="width:${pct}%"></div></div>
+                <span class="vel-count">${(values[i] * 100).toFixed(1)}%</span>
+            </div>`;
+        }).join('');
+        document.getElementById(containerId).innerHTML = html;
+    }
+
+    _renderBandChart(containerId, bands, suffix = '') {
+        const values = Object.values(bands).map(v => v || 0);
+        const max = Math.max(...values, 0.001);
+        const html = Object.entries(bands).map(([label, val]) => {
+            const pct = Math.round((val || 0) / max * 100);
+            return `<div class="vel-bar-row">
+                <span class="vel-label" style="min-width:90px;text-align:right;font-size:0.75em;">${label}</span>
+                <div class="vel-bar-bg"><div class="vel-bar-fill" style="width:${pct}%"></div></div>
+                <span class="vel-count">${val}${suffix}</span>
+            </div>`;
+        }).join('');
+        document.getElementById(containerId).innerHTML = html;
+    }
+
+    _renderEnergyCurve(containerId, curve) {
+        if (!curve.length) return;
+        const max = Math.max(...curve, 0.001);
+        const html = curve.map(v => {
+            const h = Math.max(2, Math.round(v / max * 100));
+            return `<div class="energy-bar" style="height:${h}%"></div>`;
+        }).join('');
+        document.getElementById(containerId).innerHTML = html;
+    }
+
+    _renderSections(containerId, sections) {
+        const html = sections.map(s =>
+            `<div class="change-item">
+                <div class="measure">${s.label}</div>
+                <div class="change-detail">${s.time_range} — avg energy ${s.energy_pct}%</div>
+            </div>`
+        ).join('');
+        document.getElementById(containerId).innerHTML = html;
+    }
+
+    // ── Audio reset / error ───────────────────────────────────────────────────
+
+    resetAudio() {
+        this.audioFile = null;
+        document.querySelector('#audioTab .upload-section').style.display = 'block';
+        this.elements.audioResultsSection.style.display = 'none';
+        this.hideAudioError();
+        this.elements.audioInput.value = '';
+        this.elements.audioFileName.style.display = 'none';
+        this.elements.audioAnalyzeBtn.style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    showAudioError(message) {
+        this.elements.audioErrorSection.style.display = 'block';
+        this.elements.audioErrorMessage.textContent = message;
+        this.elements.audioResultsSection.style.display = 'none';
+        this.elements.audioLoadingSpinner.style.display = 'none';
+    }
+
+    hideAudioError() {
+        this.elements.audioErrorSection.style.display = 'none';
     }
 }
 
