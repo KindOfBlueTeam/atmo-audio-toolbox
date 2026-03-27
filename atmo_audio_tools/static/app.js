@@ -22,6 +22,7 @@ class MIDIAnalysisApp {
             analyzeBtn: document.getElementById('analyzeBtn'),
             globalLoadingBanner: document.getElementById('globalLoadingBanner'),
             globalLoadingText:   document.getElementById('globalLoadingText'),
+            masterLogStream:     document.getElementById('masterLogStream'),
             resultsSection: document.getElementById('resultsSection'),
             errorSection: document.getElementById('errorSection'),
             errorMessage: document.getElementById('errorMessage'),
@@ -908,44 +909,86 @@ class MIDIAnalysisApp {
         formData.append('target',    this.masterTargetFile);
         formData.append('reference', this.masterReferenceFile);
 
-        this.showGlobalLoading('Mastering your track — this may take a few minutes…');
+        this.showGlobalLoading('Starting mastering process…');
+        this.elements.masterLogStream.innerHTML    = '';
+        this.elements.masterLogStream.style.display = 'block';
         this.elements.masterSubmitBtn.style.display = 'none';
         this.hideMasterError();
 
+        // Start the job
+        let jobId;
         try {
-            const response = await fetch('/api/master', { method: 'POST', body: formData });
-            if (!response.ok) {
-                let errMsg = 'Mastering failed';
-                try { const j = await response.json(); errMsg = j.error || errMsg; } catch {}
-                throw new Error(errMsg);
-            }
-
-            // Read metrics from headers before consuming body
-            const h = response.headers;
-            const fmt = (v, unit) => v && v !== 'None' ? `${v} ${unit}` : '—';
-            document.getElementById('mBefore-lufs').textContent = fmt(h.get('X-Master-Before-Lufs'), 'LUFS');
-            document.getElementById('mBefore-peak').textContent = fmt(h.get('X-Master-Before-Peak'), 'dBFS');
-            document.getElementById('mBefore-rms').textContent  = fmt(h.get('X-Master-Before-Rms'), 'dB');
-            document.getElementById('mBefore-dr').textContent   = fmt(h.get('X-Master-Before-Dr'), 'dB');
-            document.getElementById('mAfter-lufs').textContent  = fmt(h.get('X-Master-After-Lufs'), 'LUFS');
-            document.getElementById('mAfter-peak').textContent  = fmt(h.get('X-Master-After-Peak'), 'dBFS');
-            document.getElementById('mAfter-rms').textContent   = fmt(h.get('X-Master-After-Rms'), 'dB');
-            document.getElementById('mAfter-dr').textContent    = fmt(h.get('X-Master-After-Dr'), 'dB');
-
-            const blob = await response.blob();
-            const url  = URL.createObjectURL(blob);
-            const stem = this.masterTargetFile.name.replace(/\.[^.]+$/, '');
-            this.elements.masterDownloadLink.href             = url;
-            this.elements.masterDownloadLink.download         = `${stem}-mastered.wav`;
-            this.elements.masterResultMsg.textContent         = `${this.masterTargetFile.name} → ${this.masterReferenceFile.name}`;
-            this.elements.masterResultPending.style.display   = 'none';
-            this.elements.masterResultComplete.style.display  = 'flex';
-        } catch (error) {
-            this.showMasterError(`Mastering error: ${error.message}`);
-            this.elements.masterSubmitBtn.style.display = 'inline-block';
-        } finally {
+            const resp = await fetch('/api/master', { method: 'POST', body: formData });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Failed to start mastering');
+            jobId = data.job_id;
+        } catch (err) {
+            this.showMasterError(`Mastering error: ${err.message}`);
             this.hideGlobalLoading();
+            this.elements.masterLogStream.style.display = 'none';
+            this.elements.masterSubmitBtn.style.display = 'inline-block';
+            return;
         }
+
+        // Poll for progress
+        let cursor = 0;
+        const poll = setInterval(async () => {
+            try {
+                const resp = await fetch(`/api/master/status/${jobId}?cursor=${cursor}`);
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'Status check failed');
+
+                // Append new log lines
+                for (const msg of (data.logs || [])) {
+                    const line = document.createElement('div');
+                    line.textContent = msg;
+                    this.elements.masterLogStream.appendChild(line);
+                }
+                if (data.logs?.length) {
+                    this.elements.masterLogStream.scrollTop = this.elements.masterLogStream.scrollHeight;
+                }
+                cursor = data.next_cursor;
+
+                if (data.status === 'complete') {
+                    clearInterval(poll);
+                    this._finishMastering(jobId, data);
+                } else if (data.status === 'error') {
+                    clearInterval(poll);
+                    this.showMasterError(`Mastering failed: ${data.error}`);
+                    this.hideGlobalLoading();
+                    this.elements.masterLogStream.style.display = 'none';
+                    this.elements.masterSubmitBtn.style.display = 'inline-block';
+                }
+            } catch (err) {
+                clearInterval(poll);
+                this.showMasterError(`Mastering error: ${err.message}`);
+                this.hideGlobalLoading();
+                this.elements.masterLogStream.style.display = 'none';
+            }
+        }, 1000);
+    }
+
+    _finishMastering(jobId, data) {
+        const fmt = (v, unit) => v != null ? `${v} ${unit}` : '—';
+        const b = data.metrics_before || {};
+        const a = data.metrics_after  || {};
+        document.getElementById('mBefore-lufs').textContent = fmt(b.lufs,    'LUFS');
+        document.getElementById('mBefore-peak').textContent = fmt(b.peak_db, 'dBFS');
+        document.getElementById('mBefore-rms').textContent  = fmt(b.rms_db,  'dB');
+        document.getElementById('mBefore-dr').textContent   = fmt(b.dr,      'dB');
+        document.getElementById('mAfter-lufs').textContent  = fmt(a.lufs,    'LUFS');
+        document.getElementById('mAfter-peak').textContent  = fmt(a.peak_db, 'dBFS');
+        document.getElementById('mAfter-rms').textContent   = fmt(a.rms_db,  'dB');
+        document.getElementById('mAfter-dr').textContent    = fmt(a.dr,      'dB');
+
+        const stem = this.masterTargetFile.name.replace(/\.[^.]+$/, '');
+        this.elements.masterDownloadLink.href             = `/api/master/download/${jobId}`;
+        this.elements.masterDownloadLink.download         = data.download_name || `${stem}-mastered.wav`;
+        this.elements.masterResultMsg.textContent         = `${this.masterTargetFile.name} → ${this.masterReferenceFile.name}`;
+        this.elements.masterResultPending.style.display   = 'none';
+        this.elements.masterResultComplete.style.display  = 'flex';
+        this.hideGlobalLoading();
+        this.elements.masterLogStream.style.display = 'none';
     }
 
     resetMaster() {
@@ -958,6 +1001,8 @@ class MIDIAnalysisApp {
         this.elements.masterSubmitBtn.style.display         = 'none';
         this.elements.masterResultPending.style.display     = '';
         this.elements.masterResultComplete.style.display    = 'none';
+        this.elements.masterLogStream.innerHTML             = '';
+        this.elements.masterLogStream.style.display        = 'none';
         this.hideMasterError();
     }
 

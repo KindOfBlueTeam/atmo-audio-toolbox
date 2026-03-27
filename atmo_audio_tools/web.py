@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import io
 import os
+import shutil
 import tempfile
 import threading
+import uuid
 from pathlib import Path
+from threading import Thread, Timer
 
 import mido
 import numpy as np
@@ -20,7 +23,61 @@ _AUDIO_EXTENSIONS = {'.wav', '.aif', '.aiff', '.flac', '.ogg', '.mp3'}
 _AUDIO_MAX_BYTES  = 100 * 1024 * 1024  # 100 MB
 
 # Limit concurrent audio analyses — each one peaks at ~2 GB RAM
-_AUDIO_SEMAPHORE = threading.Semaphore(2)
+_AUDIO_SEMAPHORE  = threading.Semaphore(2)
+# Only one mastering job at a time (mg.set_handlers is global)
+_MASTER_SEMAPHORE = threading.Semaphore(1)
+
+# In-memory job store: job_id → job dict
+_MASTER_JOBS: dict = {}
+_MASTER_JOB_TTL = 600  # seconds before temp files are cleaned up
+
+
+def _cleanup_master_job(job_id: str) -> None:
+    job = _MASTER_JOBS.pop(job_id, None)
+    if job and job.get('tmpdir'):
+        shutil.rmtree(job['tmpdir'], ignore_errors=True)
+
+
+def _run_mastering(job: dict, target_data: bytes, ref_data: bytes,
+                   target_ext: str, ref_ext: str, target_stem: str) -> None:
+    """Background thread: runs matchering, populates job dict."""
+    try:
+        import matchering as mg
+
+        def _log(msg: str) -> None:
+            job['logs'].append(msg)
+
+        mg.set_handlers(default_handler=_log)
+
+        tmpdir = tempfile.mkdtemp()
+        job['tmpdir'] = tmpdir
+
+        target_path = os.path.join(tmpdir, f'target{target_ext}')
+        ref_path    = os.path.join(tmpdir, f'reference{ref_ext}')
+        output_path = os.path.join(tmpdir, 'mastered.wav')
+
+        with open(target_path, 'wb') as f:
+            f.write(target_data)
+        with open(ref_path, 'wb') as f:
+            f.write(ref_data)
+
+        job['metrics_before'] = _audio_metrics(target_path)
+
+        mg.process(
+            target=target_path,
+            reference=ref_path,
+            results=[mg.Result(output_path, subtype='PCM_24')],
+        )
+
+        job['metrics_after']  = _audio_metrics(output_path)
+        job['download_name']  = f'{target_stem}-mastered.wav'
+        job['status']         = 'complete'
+
+    except Exception as exc:
+        job['error']  = str(exc)
+        job['status'] = 'error'
+    finally:
+        _MASTER_SEMAPHORE.release()
 
 
 def _sanitize_midi_bytes(data: bytes) -> bytes:
@@ -429,13 +486,9 @@ def create_app():
     @app.route('/api/master', methods=['POST'])
     def master_audio():
         """
-        Apply reference mastering to a target audio file using Matchering.
-
-        Expects a multipart form with:
-          - 'target': the audio file to master (WAV, AIFF, FLAC)
-          - 'reference': the reference track to match loudness/EQ to
-
-        Returns the mastered WAV as a download.
+        Start a mastering job. Returns a job_id immediately; the job
+        runs in a background thread. Poll /api/master/status/<job_id>
+        for progress, then download from /api/master/download/<job_id>.
         """
         if 'target' not in request.files or 'reference' not in request.files:
             return jsonify({'error': 'Both target and reference files are required'}), 400
@@ -444,11 +497,12 @@ def create_app():
         ref_file    = request.files['reference']
 
         if not target_file.filename or not ref_file.filename:
-            return jsonify({'error': 'Both target and reference files must be selected'}), 400
+            return jsonify({'error': 'Both files must be selected'}), 400
 
         _MASTER_EXTENSIONS = {'.wav', '.aif', '.aiff', '.flac'}
-        target_ext = os.path.splitext(os.path.basename(target_file.filename))[1].lower()
-        ref_ext    = os.path.splitext(os.path.basename(ref_file.filename))[1].lower()
+        target_ext  = os.path.splitext(os.path.basename(target_file.filename))[1].lower()
+        ref_ext     = os.path.splitext(os.path.basename(ref_file.filename))[1].lower()
+        target_stem = os.path.splitext(os.path.basename(target_file.filename))[0]
 
         if target_ext not in _MASTER_EXTENSIONS:
             return jsonify({'error': f'Target must be WAV, AIFF, or FLAC (got {target_ext})'}), 400
@@ -456,71 +510,83 @@ def create_app():
             return jsonify({'error': f'Reference must be WAV, AIFF, or FLAC (got {ref_ext})'}), 400
 
         try:
-            import matchering as mg
+            import matchering  # noqa — just check it's installed
         except ImportError:
             return jsonify({'error': 'Matchering is not installed on this server'}), 500
 
-        if not _AUDIO_SEMAPHORE.acquire(blocking=False):
-            return jsonify({'error': 'Server is busy — please try again in a moment'}), 503
+        if not _MASTER_SEMAPHORE.acquire(blocking=False):
+            return jsonify({'error': 'A mastering job is already running — please wait'}), 503
 
-        try:
-            target_data = target_file.read()
-            ref_data    = ref_file.read()
+        target_data = target_file.read()
+        ref_data    = ref_file.read()
 
-            if len(target_data) > _AUDIO_MAX_BYTES or len(ref_data) > _AUDIO_MAX_BYTES:
-                return jsonify({'error': 'File too large. Maximum size is 100 MB'}), 400
+        if len(target_data) > _AUDIO_MAX_BYTES or len(ref_data) > _AUDIO_MAX_BYTES:
+            _MASTER_SEMAPHORE.release()
+            return jsonify({'error': 'File too large. Maximum size is 100 MB'}), 400
 
-            with tempfile.TemporaryDirectory() as tmpdir:
-                target_path = os.path.join(tmpdir, f'target{target_ext}')
-                ref_path    = os.path.join(tmpdir, f'reference{ref_ext}')
-                output_path = os.path.join(tmpdir, 'mastered.wav')
+        job_id = str(uuid.uuid4())
+        job = {
+            'status':         'running',
+            'logs':           [],
+            'error':          None,
+            'tmpdir':         None,
+            'download_name':  None,
+            'metrics_before': None,
+            'metrics_after':  None,
+        }
+        _MASTER_JOBS[job_id] = job
 
-                with open(target_path, 'wb') as f:
-                    f.write(target_data)
-                with open(ref_path, 'wb') as f:
-                    f.write(ref_data)
+        Thread(
+            target=_run_mastering,
+            args=(job, target_data, ref_data, target_ext, ref_ext, target_stem),
+            daemon=True,
+        ).start()
 
-                before = _audio_metrics(target_path)
+        # Auto-cleanup after TTL whether or not the client downloads
+        Timer(_MASTER_JOB_TTL, _cleanup_master_job, args=[job_id]).start()
 
-                mg.process(
-                    target=target_path,
-                    reference=ref_path,
-                    results=[mg.Result(output_path, subtype='PCM_24')],
-                )
+        return jsonify({'job_id': job_id}), 202
 
-                after = _audio_metrics(output_path)
+    @app.route('/api/master/status/<job_id>')
+    def master_status(job_id):
+        """Poll for job progress. Pass ?cursor=N to receive only new log lines."""
+        job = _MASTER_JOBS.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found or expired'}), 404
 
-                with open(output_path, 'rb') as f:
-                    mastered_bytes = f.read()
+        cursor   = max(0, int(request.args.get('cursor', 0)))
+        new_logs = job['logs'][cursor:]
 
-            output = io.BytesIO(mastered_bytes)
-            output.seek(0)
+        resp = {
+            'status':      job['status'],
+            'logs':        new_logs,
+            'next_cursor': cursor + len(new_logs),
+        }
+        if job['status'] == 'complete':
+            resp['metrics_before'] = job['metrics_before']
+            resp['metrics_after']  = job['metrics_after']
+            resp['download_name']  = job['download_name']
+        elif job['status'] == 'error':
+            resp['error'] = job['error']
 
-            stem = os.path.splitext(os.path.basename(target_file.filename))[0]
-            download_name = f"{stem}-mastered.wav"
+        return jsonify(resp)
 
-            resp = send_file(
-                output,
-                mimetype='audio/wav',
-                as_attachment=True,
-                download_name=download_name,
-            )
-            resp.headers['X-Master-Before-Lufs']    = str(before['lufs'])
-            resp.headers['X-Master-Before-Peak']    = str(before['peak_db'])
-            resp.headers['X-Master-Before-Rms']     = str(before['rms_db'])
-            resp.headers['X-Master-Before-Dr']      = str(before['dr'])
-            resp.headers['X-Master-After-Lufs']     = str(after['lufs'])
-            resp.headers['X-Master-After-Peak']     = str(after['peak_db'])
-            resp.headers['X-Master-After-Rms']      = str(after['rms_db'])
-            resp.headers['X-Master-After-Dr']       = str(after['dr'])
-            return resp
+    @app.route('/api/master/download/<job_id>')
+    def master_download(job_id):
+        """Download the mastered file once the job is complete."""
+        job = _MASTER_JOBS.get(job_id)
+        if not job or job['status'] != 'complete':
+            return jsonify({'error': 'Job not ready or not found'}), 404
 
-        except Exception as exc:
-            app.logger.error("Mastering failed: %s", exc, exc_info=True)
-            return jsonify({'error': f'Mastering failed: {exc}'}), 400
+        output_path   = os.path.join(job['tmpdir'], 'mastered.wav')
+        download_name = job['download_name']
 
-        finally:
-            _AUDIO_SEMAPHORE.release()
+        return send_file(
+            output_path,
+            mimetype='audio/wav',
+            as_attachment=True,
+            download_name=download_name,
+        )
 
     @app.errorhandler(413)
     def request_entity_too_large(error):
