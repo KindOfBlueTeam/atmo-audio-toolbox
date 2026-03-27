@@ -47,7 +47,7 @@ def _run_mastering(job: dict, target_data: bytes, ref_data: bytes,
         def _log(msg: str) -> None:
             job['logs'].append(msg)
 
-        mg.set_handlers(default_handler=_log)
+        mg.log(default_handler=_log)
 
         tmpdir = tempfile.mkdtemp()
         job['tmpdir'] = tmpdir
