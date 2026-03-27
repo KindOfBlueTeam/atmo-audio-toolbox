@@ -6,24 +6,25 @@
     <title>Atmo Audio Toolbox</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Josefin+Slab:ital,wght@0,100;0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Josefin+Slab:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style_c.css') }}">
 </head>
 <body>
     <div class="container">
-
         <header>
-            <img src="{{ url_for('static', filename='img/atmo-records-logo-test.png') }}" alt="Atmo Records" class="header-logo">
-            <div class="header-text">
-                <h1>Atmo Audio Toolbox</h1>
-                <p class="subtitle">Upload and analyze your audio or MIDI files instantly</p>
+            <div class="header-inner">
+                <img src="{{ url_for('static', filename='img/atmo-records-logo-test.png') }}" alt="Atmo Records" class="header-logo">
+                <div>
+                    <h1>Atmo Audio Toolbox</h1>
+                    <p class="subtitle">Upload and analyze your audio or MIDI files instantly</p>
+                </div>
             </div>
         </header>
 
         <!-- Tab Bar -->
         <div class="tab-bar">
-            <button class="tab-btn active" data-tab="audio">Audio Analysis</button>
-            <button class="tab-btn" data-tab="midi">MIDI Analysis</button>
+            <button class="tab-btn active" data-tab="audio">🎵 Audio Analysis</button>
+            <button class="tab-btn" data-tab="midi">🎹 MIDI Analysis</button>
         </div>
 
         <main>
@@ -58,22 +59,20 @@
                 </div>
 
                 <section id="resultsSection" class="results-section" style="display: none;">
-
-                    <!-- MIDI file info line -->
-                    <div class="file-info-line">
-                        <span class="fi-name" id="resFileName"></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Duration</span> <span id="resDuration"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Tracks</span> <span id="resTracks"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Format</span> <span id="resFormat"></span></span>
-                    </div>
-
                     <div class="results-container">
 
                         <div class="result-card">
-                            <h3>Structure</h3>
+                            <h3>📋 File Information</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><span class="label">File Name</span><span class="value" id="resFileName"></span></div>
+                                <div class="info-item"><span class="label">Duration</span><span class="value" id="resDuration"></span></div>
+                                <div class="info-item"><span class="label">Tracks</span><span class="value" id="resTracks"></span></div>
+                                <div class="info-item"><span class="label">Format</span><span class="value" id="resFormat"></span></div>
+                            </div>
+                        </div>
+
+                        <div class="result-card">
+                            <h3>🎹 Structure</h3>
                             <div class="info-grid">
                                 <div class="info-item"><span class="label">Total Notes</span><span class="value" id="resNotes"></span></div>
                                 <div class="info-item"><span class="label">Max Polyphony</span><span class="value" id="resPolyphony"></span></div>
@@ -84,7 +83,7 @@
                         </div>
 
                         <div class="result-card">
-                            <h3>Key &amp; Mode</h3>
+                            <h3>🎵 Key &amp; Mode</h3>
                             <div class="info-grid">
                                 <div class="info-item" id="resKeyItem">
                                     <span class="label" id="resKeyLabel">Key</span>
@@ -97,7 +96,7 @@
                         </div>
 
                         <div class="result-card">
-                            <h3>Tempo</h3>
+                            <h3>⏱️ Tempo</h3>
                             <div class="info-grid">
                                 <div class="info-item"><span class="label">Initial BPM</span><span class="value" id="resInitialBPM"></span></div>
                                 <div class="info-item"><span class="label">Tempo Type</span><span class="value" id="resTempoType"></span></div>
@@ -108,7 +107,7 @@
                         </div>
 
                         <div class="result-card">
-                            <h3>Dynamics</h3>
+                            <h3>🔊 Dynamics</h3>
                             <div class="info-grid">
                                 <div class="info-item"><span class="label">Overall Dynamic</span><span class="value" id="resOverallDynamic"></span></div>
                                 <div class="info-item"><span class="label">Average Velocity</span><span class="value" id="resAvgVelocity"></span></div>
@@ -116,49 +115,49 @@
                                 <div class="info-item"><span class="label">Velocity Std Dev</span><span class="value" id="resVelStdDev"></span></div>
                                 <div class="info-item"><span class="label">Human vs Software</span><span class="value" id="resHumanness"></span></div>
                             </div>
-                            <div id="humanessSpectrumContainer" style="display:none;" class="sub-panel" style="margin-top:1.1rem;">
-                                <div class="sub-panel-label">← Clearly Human &nbsp;|&nbsp; Clearly Software →</div>
+                            <div id="humanessSpectrumContainer" style="display:none; margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                <div style="font-size:0.85em; margin-bottom:8px; color:#999;">← Clearly Human | Clearly Software →</div>
                                 <div class="spectrum-bar"><div id="spectrumFill" class="spectrum-fill"></div></div>
-                                <div style="font-size:0.75rem; margin-top:0.5rem; color:var(--text-3);" id="humanessLabel"></div>
-                                <div id="dynamicsBtns" style="display:none; margin-top:0.9rem; gap:0.5rem; flex-wrap:wrap;">
+                                <div style="font-size:0.85em; margin-top:8px; color:#999;" id="humanessLabel"></div>
+                                <div id="dynamicsBtns" style="display:none; margin-top:12px; gap:8px; flex-wrap:wrap;">
                                     <button id="humanizeBtn" class="btn btn-humanize">Humanize Velocity</button>
                                     <button id="normalizeVelocityBtn" class="btn btn-normalize">Normalize Velocity</button>
                                 </div>
                             </div>
-                            <div id="velChartContainer" style="display:none;" class="sub-panel">
-                                <div class="sub-panel-label">Velocity Distribution</div>
+                            <div id="velChartContainer" style="display:none; margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                <div style="font-size:0.85em; margin-bottom:10px; color:#999;">Velocity Distribution</div>
                                 <div id="velChart" class="vel-chart"></div>
                             </div>
                         </div>
 
                         <div class="result-card">
-                            <h3>Timing &amp; Quantization</h3>
+                            <h3>🥁 Timing &amp; Quantization</h3>
                             <div class="info-grid">
                                 <div class="info-item"><span class="label">On-Grid Notes</span><span class="value" id="resOnGrid"></span></div>
                                 <div class="info-item"><span class="label">Mean Offset</span><span class="value" id="resMeanOffset"></span></div>
                                 <div class="info-item"><span class="label">Offset Std Dev</span><span class="value" id="resOffsetStdDev"></span></div>
                                 <div class="info-item"><span class="label">Human vs Software</span><span class="value" id="resQuantization"></span></div>
                             </div>
-                            <div id="quantizationSpectrumContainer" style="display:none;" class="sub-panel">
-                                <div class="sub-panel-label">← Clearly Human &nbsp;|&nbsp; Clearly Software →</div>
+                            <div id="quantizationSpectrumContainer" style="display:none; margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                <div style="font-size:0.85em; margin-bottom:8px; color:#999;">← Clearly Human | Clearly Software →</div>
                                 <div class="spectrum-bar"><div id="quantizationSpectrumFill" class="spectrum-fill"></div></div>
-                                <div style="font-size:0.75rem; margin-top:0.5rem; color:var(--text-3);" id="quantizationLabel"></div>
-                                <button id="humanizeTimingBtn" class="btn btn-humanize" style="display:none; margin-top:0.9rem;">Humanize Timing</button>
+                                <div style="font-size:0.85em; margin-top:8px; color:#999;" id="quantizationLabel"></div>
+                                <button id="humanizeTimingBtn" class="btn btn-humanize" style="display:none; margin-top:12px;">Humanize Timing</button>
                             </div>
                         </div>
 
+                        <div class="result-card">
+                            <h3>📊 Raw JSON Data</h3>
+                            <pre id="rawJSON" class="json-display"></pre>
+                            <button id="copyJsonBtn" class="btn btn-secondary">Copy JSON</button>
+                        </div>
                     </div>
-
-                    <div class="results-actions">
-                        <button id="downloadJsonBtn" class="btn btn-secondary">Download JSON</button>
-                        <button id="analyzeAnotherBtn" class="btn btn-primary">Analyze Another File</button>
-                    </div>
-
+                    <button id="analyzeAnotherBtn" class="btn btn-primary" style="margin-top:2rem;">Analyze Another File</button>
                 </section>
 
                 <div id="errorSection" class="error-section" style="display: none;">
                     <div class="error-box">
-                        <h3>Error</h3>
+                        <h3>❌ Error</h3>
                         <p id="errorMessage"></p>
                         <button id="retryBtn" class="btn btn-primary">Try Again</button>
                     </div>
@@ -195,42 +194,11 @@
                 </div>
 
                 <section id="audioResultsSection" class="results-section" style="display:none;">
-
-                    <!-- Audio file info line -->
-                    <div class="file-info-line">
-                        <span class="fi-name" id="aResFile"></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Duration</span> <span id="aResDuration"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Sample Rate</span> <span id="aResSR"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Channels</span> <span id="aResChannels"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Transient Density</span> <span id="aResTransient"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Spectral Flux</span> <span id="aResFlux"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Harmonic Complexity</span> <span id="aResHarmComplexity"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Tempo</span> <span id="aResBPM"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Type</span> <span id="aResAmbient"></span></span>
-                        <span class="fi-sep">·</span>
-                        <span class="fi-item"><span class="fi-label">Scaling</span> <span id="aResTimeScale"></span></span>
-                        <button id="downloadAudioJsonBtn" class="btn btn-secondary fi-btn">Download JSON</button>
-                    </div>
-
                     <div class="results-container">
 
-                        <!-- ① Energy Over Time — full-width, topmost -->
-                        <div class="result-card full-width">
-                            <h3>Energy Over Time</h3>
-                            <div id="energyCurve" class="energy-chart energy-chart-wide"></div>
-                        </div>
-
-                        <!-- ② Visual Overview — full-width, radar charts only -->
-                        <div class="result-card full-width" id="audioRadarCard" style="display:none;">
-                            <h3>Visual Overview</h3>
+                        <!-- Radar Charts -->
+                        <div class="result-card" id="audioRadarCard" style="display:none;">
+                            <h3>📡 Visual Overview</h3>
                             <div class="radar-row">
                                 <div class="radar-wrap">
                                     <div class="radar-title">Pitch Class</div>
@@ -247,88 +215,67 @@
                             </div>
                         </div>
 
-                        <!-- ③ Pitch Distribution — full-width line chart -->
-                        <div class="result-card full-width" id="pitchHistContainer">
-                            <h3>Pitch Distribution</h3>
-                            <div id="pitchHist"></div>
-                        </div>
-
-                        <!-- ④ Bass Note Distribution — full-width line chart -->
-                        <div class="result-card full-width" id="bassHistContainer">
-                            <h3>Bass Note Distribution</h3>
-                            <div id="bassHist"></div>
-                        </div>
-
-                        <!-- ⑤ Frequency Balance — full-width line chart -->
-                        <div class="result-card full-width" id="freqBandsContainer">
-                            <h3>Frequency Balance</h3>
-                            <div id="freqBands"></div>
-                        </div>
-
-                        <!-- ⑥ Tonal Analysis — Tonality + Bass + Harmonic combined, full-width -->
-                        <div class="result-card full-width">
-                            <h3>Tonal Analysis</h3>
-                            <div class="tonal-cols">
-                                <div class="tonal-col">
-                                    <div class="tonal-col-label">Tonality</div>
-                                    <div class="info-grid">
-                                        <div class="info-item"><span class="label">Key</span><span class="value" id="aResKey"></span></div>
-                                        <div class="info-item"><span class="label">Mode</span><span class="value" id="aResMode"></span></div>
-                                        <div class="info-item"><span class="label">Modal Flavor</span><span class="value" id="aResModalFlavor"></span></div>
-                                        <div class="info-item"><span class="label">Key Confidence</span><span class="value" id="aResConfidence"></span></div>
-                                        <div class="info-item"><span class="label">Tonic Margin</span><span class="value" id="aResTonicMargin"></span></div>
-                                        <div class="info-item"><span class="label">Relative Key</span><span class="value" id="aResRelativeKey"></span></div>
-                                    </div>
-                                </div>
-                                <div class="tonal-col">
-                                    <div class="tonal-col-label">Bass</div>
-                                    <div class="info-grid">
-                                        <div class="info-item"><span class="label">Dominant Bass Notes</span><span class="value" id="aResBassNotes"></span></div>
-                                        <div class="info-item"><span class="label">Root Bass</span><span class="value" id="aResRootBass"></span></div>
-                                        <div class="info-item"><span class="label">Non-Root Bass</span><span class="value" id="aResNonRoot"></span></div>
-                                        <div class="info-item"><span class="label">Sub Consistency</span><span class="value" id="aResSub"></span></div>
-                                        <div class="info-item"><span class="label">Spectral Centroid</span><span class="value" id="aResCentroid"></span></div>
-                                        <div class="info-item"><span class="label">Harmonic Root</span><span class="value" id="aResRoot"></span></div>
-                                        <div class="info-item"><span class="label">Bass Root</span><span class="value" id="aResBassRoot"></span></div>
-                                    </div>
-                                </div>
-                                <div class="tonal-col">
-                                    <div class="tonal-col-label">Harmonic</div>
-                                    <div class="info-grid">
-                                        <div class="info-item"><span class="label">Root Stability</span><span class="value" id="aResRootStab"></span></div>
-                                        <div class="info-item"><span class="label">Root #1 Rank %</span><span class="value" id="aResRootRank1"></span></div>
-                                        <div class="info-item"><span class="label">Root Top-2 %</span><span class="value" id="aResRootTop2"></span></div>
-                                        <div class="info-item"><span class="label">Root Mean Rank</span><span class="value" id="aResRootMeanRank"></span></div>
-                                        <div class="info-item"><span class="label">Tonic Margin (avg)</span><span class="value" id="aResMarginMean"></span></div>
-                                        <div class="info-item"><span class="label">Key Drift</span><span class="value" id="aResKeyDrift"></span></div>
-                                        <div class="info-item"><span class="label">V→I Resolution</span><span class="value" id="aResVI"></span></div>
-                                        <div class="info-item"><span class="label">Chord Changes/min</span><span class="value" id="aResChords"></span></div>
-                                        <div class="info-item"><span class="label">Chord Confidence</span><span class="value" id="aResChordConf"></span></div>
-                                        <div class="info-item" id="aResInterpretiveRow" style="display:none;"><span class="label">Interpretive Labels</span><span class="value" id="aResInterpretive"></span></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- hidden for JS compatibility -->
-                            <div style="display:none;">
-                                <span id="candidateTonicsContainer"></span>
-                                <span id="harmonicRootCandidatesContainer"></span>
-                            </div>
-                            <div style="display:none;" id="candidateTonicsOuter"></div>
-                            <div style="display:none;" id="harmonicRootCandidatesOuter"></div>
-                        </div>
-
-                        <!-- BPM fields moved to file-info-line; hidden spans for JS compatibility -->
-                        <div style="display:none;">
-                            <span id="aResBeats"></span><span id="aResStability"></span>
-                            <span id="aResTempoConf"></span><span id="aResDownbeat"></span>
-                            <span id="aResAmbientScore"></span><span id="aResBeatGrid"></span>
-                            <span id="tempoCandidatesContainer"></span>
-                            <span id="tempoGroupsContainer"></span>
-                        </div>
-
-                        <!-- ⑧ Loudness & Structure combined -->
+                        <!-- File Info -->
                         <div class="result-card">
-                            <h3>Loudness &amp; Structure</h3>
+                            <h3>📋 File Information</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><span class="label">File Name</span><span class="value" id="aResFile"></span></div>
+                                <div class="info-item"><span class="label">Duration</span><span class="value" id="aResDuration"></span></div>
+                                <div class="info-item"><span class="label">Sample Rate</span><span class="value" id="aResSR"></span></div>
+                                <div class="info-item"><span class="label">Channels</span><span class="value" id="aResChannels"></span></div>
+                            </div>
+                        </div>
+
+                        <!-- Tonality -->
+                        <div class="result-card">
+                            <h3>🎵 Tonality</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><span class="label">Key</span><span class="value" id="aResKey"></span></div>
+                                <div class="info-item"><span class="label">Mode</span><span class="value" id="aResMode"></span></div>
+                                <div class="info-item"><span class="label">Modal Flavor</span><span class="value" id="aResModalFlavor"></span></div>
+                                <div class="info-item"><span class="label">Key Confidence</span><span class="value" id="aResConfidence"></span></div>
+                                <div class="info-item"><span class="label">Tonic Margin</span><span class="value" id="aResTonicMargin"></span></div>
+                                <div class="info-item"><span class="label">Relative Key</span><span class="value" id="aResRelativeKey"></span></div>
+                            </div>
+                            <div id="pitchHistContainer" style="display:none; margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                <div style="font-size:0.85em; margin-bottom:10px; color:#999;">Pitch Class Distribution</div>
+                                <div id="pitchHist" class="vel-chart"></div>
+                            </div>
+                            <div style="display:none;" id="candidateTonicsOuter">
+                                <div style="margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                    <div style="font-size:0.85em; margin-bottom:10px; color:#999;">Top Tonic Candidates</div>
+                                    <div id="candidateTonicsContainer"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BPM -->
+                        <div class="result-card">
+                            <h3>⏱️ BPM &amp; Rhythm</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><span class="label">Tempo</span><span class="value" id="aResBPM"></span></div>
+                                <div class="info-item"><span class="label">Beat Count</span><span class="value" id="aResBeats"></span></div>
+                                <div class="info-item"><span class="label">Stability</span><span class="value" id="aResStability"></span></div>
+                                <div class="info-item"><span class="label">Confidence</span><span class="value" id="aResTempoConf"></span></div>
+                                <div class="info-item"><span class="label">Downbeat Confidence</span><span class="value" id="aResDownbeat"></span></div>
+                                <div class="info-item"><span class="label">Track Type</span><span class="value" id="aResAmbient"></span></div>
+                                <div class="info-item"><span class="label">Ambient Score</span><span class="value" id="aResAmbientScore"></span></div>
+                                <div class="info-item"><span class="label">Beat Grid Confidence</span><span class="value" id="aResBeatGrid"></span></div>
+                                <div class="info-item"><span class="label">Time Scaling</span><span class="value" id="aResTimeScale"></span></div>
+                            </div>
+                            <div id="tempoCandidatesOuter" style="display:none; margin-top:0.75rem;">
+                                <div class="label" style="margin-bottom:0.35rem;">Top Tempo Candidates</div>
+                                <div id="tempoCandidatesContainer"></div>
+                            </div>
+                            <div id="tempoGroupsOuter" style="display:none; margin-top:0.75rem;">
+                                <div class="label" style="margin-bottom:0.35rem;">Tempo Equivalence Groups</div>
+                                <div id="tempoGroupsContainer"></div>
+                            </div>
+                        </div>
+
+                        <!-- Loudness -->
+                        <div class="result-card">
+                            <h3>🔊 Loudness &amp; Dynamics</h3>
                             <div class="info-grid">
                                 <div class="info-item"><span class="label">Integrated LUFS</span><span class="value" id="aResLUFS"></span></div>
                                 <div class="info-item"><span class="label">Short-term LUFS</span><span class="value" id="aResSTLUFS"></span></div>
@@ -336,15 +283,24 @@
                                 <div class="info-item"><span class="label">RMS</span><span class="value" id="aResRMS"></span></div>
                                 <div class="info-item"><span class="label">Crest Factor</span><span class="value" id="aResCrest"></span></div>
                                 <div class="info-item"><span class="label">Dynamic Range (DR)</span><span class="value" id="aResDR"></span></div>
-                                <div class="info-item"><span class="label">Peak Energy At</span><span class="value" id="aResPeak"></span></div>
-                                <div class="info-item"><span class="label">Event Density</span><span class="value" id="aResDensity"></span></div>
                             </div>
-                            <div id="sectionsList" style="display:none;"></div>
                         </div>
 
-                        <!-- ⑨ Stereo — cone visualization -->
+                        <!-- Frequency -->
                         <div class="result-card">
-                            <h3>Stereo &amp; Imaging</h3>
+                            <h3>📻 Frequency &amp; Tonal Balance</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><span class="label">Spectral Centroid</span><span class="value" id="aResCentroid"></span></div>
+                            </div>
+                            <div id="freqBandsContainer" style="margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                <div style="font-size:0.85em; margin-bottom:10px; color:#999;">Energy by Frequency Band</div>
+                                <div id="freqBands" class="vel-chart"></div>
+                            </div>
+                        </div>
+
+                        <!-- Stereo -->
+                        <div class="result-card">
+                            <h3>📡 Stereo &amp; Imaging</h3>
                             <div class="info-grid">
                                 <div class="info-item"><span class="label">Stereo Width</span><span class="value" id="aResWidth"></span></div>
                                 <div class="info-item"><span class="label">Mid Energy</span><span class="value" id="aResMid"></span></div>
@@ -352,22 +308,90 @@
                                 <div class="info-item"><span class="label">Phase Correlation</span><span class="value" id="aResPhase"></span></div>
                                 <div class="info-item"><span class="label">Mono Compatibility</span><span class="value" id="aResMono"></span></div>
                             </div>
-                            <div id="stereoWidthBar" style="display:none;" class="sub-panel">
-                                <div class="sub-panel-label">Stereo Field</div>
+                            <div id="stereoWidthBar" style="display:none; margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                <div style="font-size:0.85em; margin-bottom:8px; color:#999;">Stereo Width</div>
+                                <div class="spectrum-bar"><div id="stereoWidthFill" class="spectrum-fill" style="background:linear-gradient(to right,#10b981,#0099ff);"></div></div>
                             </div>
                         </div>
 
-                    </div>
+                        <!-- Harmonic -->
+                        <div class="result-card">
+                            <h3>🎶 Harmonic Behavior</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><span class="label">Harmonic Root</span><span class="value" id="aResRoot"></span></div>
+                                <div class="info-item"><span class="label">Bass Root</span><span class="value" id="aResBassRoot"></span></div>
+                                <div class="info-item"><span class="label">Root Stability</span><span class="value" id="aResRootStab"></span></div>
+                                <div class="info-item"><span class="label">Root #1 Rank %</span><span class="value" id="aResRootRank1"></span></div>
+                                <div class="info-item"><span class="label">Root Top-2 %</span><span class="value" id="aResRootTop2"></span></div>
+                                <div class="info-item"><span class="label">Root Mean Rank</span><span class="value" id="aResRootMeanRank"></span></div>
+                                <div class="info-item"><span class="label">Tonic Margin (avg)</span><span class="value" id="aResMarginMean"></span></div>
+                                <div class="info-item"><span class="label">Key Drift</span><span class="value" id="aResKeyDrift"></span></div>
+                                <div class="info-item"><span class="label">V→I Resolution</span><span class="value" id="aResVI"></span></div>
+                                <div class="info-item"><span class="label">Chord Changes/min</span><span class="value" id="aResChords"></span></div>
+                                <div class="info-item"><span class="label">Chord Change Confidence</span><span class="value" id="aResChordConf"></span></div>
+                                <div class="info-item" id="aResInterpretiveRow" style="display:none;"><span class="label">Interpretive Labels</span><span class="value" id="aResInterpretive"></span></div>
+                            </div>
+                            <div style="display:none;" id="harmonicRootCandidatesOuter">
+                                <div style="margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                    <div style="font-size:0.85em; margin-bottom:10px; color:#999;">Harmonic Root Candidates</div>
+                                    <div id="harmonicRootCandidatesContainer"></div>
+                                </div>
+                            </div>
+                        </div>
 
-                    <div class="results-actions">
-                        <button id="audioAnalyzeAnotherBtn" class="btn btn-primary">Analyze Another File</button>
-                    </div>
+                        <!-- Bass -->
+                        <div class="result-card">
+                            <h3>🎸 Bass Analysis</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><span class="label">Dominant Bass Notes</span><span class="value" id="aResBassNotes"></span></div>
+                                <div class="info-item"><span class="label">Root Bass</span><span class="value" id="aResRootBass"></span></div>
+                                <div class="info-item"><span class="label">Non-Root Bass</span><span class="value" id="aResNonRoot"></span></div>
+                                <div class="info-item"><span class="label">Sub Consistency</span><span class="value" id="aResSub"></span></div>
+                            </div>
+                            <div id="bassHistContainer" style="display:none; margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                <div style="font-size:0.85em; margin-bottom:10px; color:#999;">Bass Note Distribution</div>
+                                <div id="bassHist" class="vel-chart"></div>
+                            </div>
+                        </div>
 
+                        <!-- Structure -->
+                        <div class="result-card">
+                            <h3>📈 Structure &amp; Energy</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><span class="label">Peak Energy At</span><span class="value" id="aResPeak"></span></div>
+                                <div class="info-item"><span class="label">Event Density</span><span class="value" id="aResDensity"></span></div>
+                            </div>
+                            <div id="energyCurveContainer" style="margin-top:15px; padding:12px; background:rgba(255,255,255,0.05); border-radius:6px;">
+                                <div style="font-size:0.85em; margin-bottom:10px; color:#999;">Energy Over Time</div>
+                                <div id="energyCurve" class="energy-chart"></div>
+                            </div>
+                            <div id="sectionsList" style="margin-top:12px;"></div>
+                        </div>
+
+                        <!-- Optional -->
+                        <div class="result-card">
+                            <h3>✨ Details</h3>
+                            <div class="info-grid">
+                                <div class="info-item"><span class="label">Transient Density</span><span class="value" id="aResTransient"></span></div>
+                                <div class="info-item"><span class="label">Spectral Flux</span><span class="value" id="aResFlux"></span></div>
+                                <div class="info-item"><span class="label">Harmonic Complexity</span><span class="value" id="aResHarmComplexity"></span></div>
+                            </div>
+                        </div>
+
+                        <!-- Raw JSON -->
+                        <div class="result-card">
+                            <h3>📊 Raw JSON Data</h3>
+                            <pre id="audioRawJSON" class="json-display"></pre>
+                            <button id="copyAudioJsonBtn" class="btn btn-secondary">Copy JSON</button>
+                        </div>
+
+                    </div>
+                    <button id="audioAnalyzeAnotherBtn" class="btn btn-primary" style="margin-top:2rem;">Analyze Another File</button>
                 </section>
 
                 <div id="audioErrorSection" class="error-section" style="display:none;">
                     <div class="error-box">
-                        <h3>Error</h3>
+                        <h3>❌ Error</h3>
                         <p id="audioErrorMessage"></p>
                         <button id="audioRetryBtn" class="btn btn-primary">Try Again</button>
                     </div>
@@ -378,9 +402,8 @@
         </main>
 
         <footer>
-            <p>Comprehensive audio &amp; MIDI analysis &nbsp;·&nbsp; No files stored on server &nbsp;·&nbsp; © 2026 <a href="https://www.atmo-records.com" target="_blank" rel="noopener noreferrer">Atmo Records</a></p>
+            <p>Comprehensive audio file and MIDI analysis • No files stored on server • © 2026 <a href="https://www.atmo-records.com" target="_blank" rel="noopener noreferrer">Atmo Records</a>. All rights reserved.</p>
         </footer>
-
     </div>
 
     <!-- Humanize timing modal -->
