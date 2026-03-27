@@ -266,7 +266,7 @@ main {
     box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
 }
 
-/* Spinner */
+/* Ripple pond loader */
 .spinner {
     display: flex;
     justify-content: center;
@@ -278,20 +278,41 @@ main {
     text-align: center;
 }
 
-.spinner-circle {
-    width: 60px;
+.ripple-pond {
+    position: relative;
+    width: 120px;
     height: 60px;
-    border: 4px solid var(--border-color);
-    border-top-color: var(--primary-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 1rem;
+    margin: 0 auto 1.4rem;
 }
 
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+.ripple-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(0.2);
+    border-radius: 50%;
+    opacity: 0;
+    animation: ripple-expand 2.4s ease-out infinite;
+}
+
+.ripple-ring:nth-child(1) { width: 30px;  height: 15px;  animation-delay: 0s; }
+.ripple-ring:nth-child(2) { width: 60px;  height: 30px;  animation-delay: 0.5s; }
+.ripple-ring:nth-child(3) { width: 90px;  height: 45px;  animation-delay: 1.0s; }
+.ripple-ring:nth-child(4) { width: 120px; height: 60px;  animation-delay: 1.5s; }
+
+/* Innermost ring: bright cyan-white */
+.ripple-ring:nth-child(1) { border: 2px solid rgba(140, 210, 255, 0.90); }
+/* Second ring: electric blue */
+.ripple-ring:nth-child(2) { border: 2px solid rgba(0, 153, 255, 0.75); }
+/* Third ring: deep blue */
+.ripple-ring:nth-child(3) { border: 1.5px solid rgba(0, 100, 200, 0.55); }
+/* Outer ring: dark teal fade */
+.ripple-ring:nth-child(4) { border: 1px solid rgba(0, 60, 120, 0.35); }
+
+@keyframes ripple-expand {
+    0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+    15%  { opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1);   opacity: 0; }
 }
 
 .spinner-content p {

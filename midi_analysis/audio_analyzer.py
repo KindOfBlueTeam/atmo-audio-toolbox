@@ -120,7 +120,7 @@ _AMBIENT_WEIGHTS: dict[str, float] = {
     'low_mid_bias':           0.20,  # energy concentrated in sub / low / mid bands
     'dynamic_softness':       0.10,  # RMS envelope is smooth, not punch-driven
     'downbeat_weakness':      0.10,  # no dominant accent peaks
-    'transient_density':      0.20,  # penalise clearly percussive onset density (subtracted)
+    'transient_density':      0.40,  # penalise clearly percussive onset density (subtracted)
 }
 _AMBIENT_THRESHOLD = 0.40     # ambient_score >= threshold → is_ambient = True
 
@@ -1317,7 +1317,7 @@ def _bpm_ambient_score(
       + w['downbeat_weakness']      * subscores['downbeat_weakness_score']
       - w['transient_density']       * subscores['transient_density_score']
     )
-    ambient_score = round(float(np.clip(ambient_score, -0.20, 1.0)), 4)
+    ambient_score = round(float(np.clip(ambient_score, -0.40, 1.0)), 4)
     is_ambient    = ambient_score >= _AMBIENT_THRESHOLD
 
     if _BPM_DEBUG:
