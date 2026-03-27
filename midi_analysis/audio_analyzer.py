@@ -1154,12 +1154,13 @@ def _bpm_ambient_score(
     air_suppression         Air band (10k+ Hz) is essentially absent.
     sustain_bias            Onset envelope is flat / uniform — no sharp peaks.
     low_mid_bias            Power concentrated in sub + low + mid bands.
-    dynamic_softness        RMS envelope is smooth; mean is close to max.
+    dynamic_softness        RMS is both uniform AND quiet — not loud+compressed.
     downbeat_weakness       No dominant accent peaks in the onset envelope.
     transient_penalty       (subtracted) High onset rate → clearly percussive.
 
-    Note: transient density alone does NOT disqualify a track.  Arpeggiated
-    pads can produce many soft onsets while remaining ambient in character.
+    Note: heavily mastered/limited electronic tracks can score high on crest
+    factor (uniform RMS) while being loud — dynamic_softness now penalises
+    absolute loudness so compressed club tracks do not read as ambient.
     """
     subscores: dict[str, float] = {}
     duration_sec = max(1.0, len(y) / sr)
@@ -1241,22 +1242,34 @@ def _bpm_ambient_score(
     except Exception:
         subscores['low_mid_bias_score'] = 0.5
 
-    # ── 5. Dynamic softness — RMS envelope is smooth, not punchy ──────────
+    # ── 5. Dynamic softness — quiet and sustained, not loud and compressed ───
+    # Two-part check: (a) RMS crest factor measures uniformity; (b) absolute
+    # mean RMS measures loudness.  Heavily brick-wall-limited club tracks have
+    # a high crest ratio (uniform) but also a high mean RMS (loud) — they must
+    # not score high on "softness".  True ambient tracks are both uniform AND
+    # quiet.  The loudness penalty collapses the score for any track whose mean
+    # RMS exceeds ~0.10 (typical of mastered electronic music on a ±1 scale).
     try:
         if rms_env is not None and len(rms_env) > 0:
-            rms_crest = float(np.mean(rms_env)) / (float(np.max(rms_env)) + 1e-10)
+            rms_arr  = np.asarray(rms_env, dtype=float)
+            mean_rms = float(np.mean(rms_arr))
+            max_rms  = float(np.max(rms_arr)) + 1e-10
         elif len(y) > 0:
-            # Fallback: coarse RMS from waveform chunks
             chunk = max(1, len(y) // 16)
             rms_chunks = [float(np.sqrt(np.mean(y[i:i+chunk].astype(np.float64)**2)))
                           for i in range(0, len(y) - chunk, chunk)]
-            rms_crest  = (float(np.mean(rms_chunks)) /
-                          (float(np.max(rms_chunks)) + 1e-10)) if rms_chunks else 0.3
+            mean_rms = float(np.mean(rms_chunks)) if rms_chunks else 0.3
+            max_rms  = float(np.max(rms_chunks)) + 1e-10 if rms_chunks else 0.4
         else:
-            rms_crest = 0.3
-        # Score → 1.0 when rms_crest ≥ 0.6; → 0.0 when rms_crest ≤ 0.10
+            mean_rms, max_rms = 0.3, 0.4
+
+        rms_crest = mean_rms / max_rms
+        # Crest factor score: 1.0 when mean ≈ max (uniform); 0.0 when very spiky
+        crest_score = float(np.clip((rms_crest - 0.10) / 0.50, 0.0, 1.0))
+        # Loudness penalty: 0.0 at mean_rms ≤ 0.05 (quiet); 1.0 at mean_rms ≥ 0.20 (loud/mastered)
+        loudness_penalty = float(np.clip((mean_rms - 0.05) / 0.15, 0.0, 1.0))
         subscores['dynamic_softness_score'] = round(
-            float(np.clip((rms_crest - 0.10) / 0.50, 0.0, 1.0)), 4)
+            float(np.clip(crest_score * (1.0 - 0.85 * loudness_penalty), 0.0, 1.0)), 4)
     except Exception:
         subscores['dynamic_softness_score'] = 0.3
 
@@ -1280,14 +1293,16 @@ def _bpm_ambient_score(
         subscores['downbeat_weakness_score'] = 0.5
 
     # ── 7. Transient density — clearly percussive onset density ───────────
-    # Kept at low weight (0.20): arpeggiated pads can still have moderate
-    # onset rates without being genuinely percussive in character.
+    # Ramps 0→1 over 0.5–3 onsets/sec so that a 4-on-the-floor kick at
+    # 120–130 BPM (~2 kicks/sec) produces a strong penalty (~0.6) rather than
+    # the near-zero penalty the old 1–6/sec range produced.  Arpeggiated pads
+    # typically sit at 0.5–1.5/sec and still receive only a modest penalty.
     try:
         onsets     = librosa.onset.onset_detect(onset_envelope=onset_env, sr=sr)
         onset_rate = len(onsets) / duration_sec
-        # Penalty → 1.0 when rate ≥ 6 onsets/sec; → 0.0 when rate ≤ 1/sec
+        # Penalty → 1.0 when rate ≥ 3 onsets/sec; → 0.0 when rate ≤ 0.5/sec
         subscores['transient_density_score'] = round(
-            float(np.clip((onset_rate - 1.0) / 5.0, 0.0, 1.0)), 4)
+            float(np.clip((onset_rate - 0.5) / 2.5, 0.0, 1.0)), 4)
     except Exception:
         subscores['transient_density_score'] = 0.3
 
