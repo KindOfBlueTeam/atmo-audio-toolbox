@@ -460,7 +460,7 @@ def create_app():
                 mg.process(
                     target=target_path,
                     reference=ref_path,
-                    results=[mg.Result(output_path)],
+                    results=[mg.Result(output_path, subtype='PCM_24')],
                 )
 
                 with open(output_path, 'rb') as f:
