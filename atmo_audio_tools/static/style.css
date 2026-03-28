@@ -1215,6 +1215,7 @@ body::before {
     overflow: hidden;
     border: 1px solid var(--card-border);
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    height: 340px;
 }
 
 .tool-preview::after {
@@ -1234,8 +1235,15 @@ body::before {
 }
 
 .tool-preview-img {
-    width: 100%;
-    height: auto;
+    position: absolute;
+    width: calc(80% + 20vw);
+    max-width: 1400px;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
     display: block;
 }
 
