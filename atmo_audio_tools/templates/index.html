@@ -72,6 +72,15 @@
             <!-- ═══════════════════════════ MIDI TAB ═══════════════════════════ -->
             <div id="midiTab" class="tab-content" style="display:none;">
 
+                <div class="tool-intro">
+                    <h2 class="tool-intro-heading">MIDI Analysis</h2>
+                    <div class="tool-intro-body">
+                        <p>MIDI files store musical performances as data — notes, timing, velocity, and more — but that information is invisible unless you open the file in a DAW or similar software.</p>
+                        <p>This tool unpacks your MIDI file and shows you what's inside: the key, tempo, note distribution, velocity dynamics, timing patterns, and how tightly the performance is quantized. It's useful for understanding a piece you downloaded, auditing your own work, or preparing a file before using it elsewhere.</p>
+                        <p class="tool-intro-analogy">Think of it like holding a printed score up to the light — the music is all there, this just makes it readable.</p>
+                    </div>
+                </div>
+
                 <section class="upload-section">
                     <div class="upload-box" id="uploadBox">
                         <div class="upload-icon">📁</div>
@@ -198,6 +207,15 @@
 
             <!-- ══════════════════════════ AUDIO TAB ═══════════════════════════ -->
             <div id="audioTab" class="tab-content">
+
+                <div class="tool-intro">
+                    <h2 class="tool-intro-heading">Audio Analysis</h2>
+                    <div class="tool-intro-body">
+                        <p>When you're working on a track, it can be hard to know how it stacks up technically — whether it's too quiet for streaming platforms, too dynamic, or clipping in ways that are hard to hear.</p>
+                        <p>This tool reads your audio file and gives you a clear picture of its key measurements: loudness (LUFS), true peak level, RMS energy, and dynamic range. These are the same numbers engineers and mastering studios use to evaluate a mix.</p>
+                        <p class="tool-intro-analogy">Think of it like taking your car to a mechanic who hooks it up to diagnostics — you're not guessing anymore, you're reading the actual numbers.</p>
+                    </div>
+                </div>
 
                 <section class="upload-section">
                     <div class="upload-box" id="audioUploadBox">
@@ -385,9 +403,16 @@
             <!-- ═══════════════════════════ MASTER TAB ══════════════════════════ -->
             <div id="masterTab" class="tab-content" style="display:none;">
 
+                <div class="tool-intro">
+                    <h2 class="tool-intro-heading">Reference Mastering</h2>
+                    <div class="tool-intro-body">
+                        <p>This tool helps your track sound more polished by comparing it to a song you like and adjusting yours to match.</p>
+                        <p>Instead of manually tweaking dozens of settings, it listens to both tracks and aligns things like tone, loudness, and overall balance so your music sits closer to a professional reference.</p>
+                        <p class="tool-intro-analogy">Think of it like tasting someone else's finished recipe, then adjusting your own dish until it has that same richness and balance.</p>
+                    </div>
+                </div>
+
                 <section class="upload-section">
-                    <h2 class="section-heading">Reference Mastering</h2>
-                    <p class="section-sub">Upload your mix and a reference track. Atmo will match the loudness and tone of your reference.</p>
 
                     <!-- Three-stage flow -->
                     <div class="master-three-col" id="masterThreeCol">

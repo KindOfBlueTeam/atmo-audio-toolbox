@@ -831,6 +831,41 @@ body::before {
     border-top: 1px solid rgba(255, 255, 255, 0.03);
 }
 
+/* ── Tool intro description ────────────────────────────────────── */
+
+.tool-intro {
+    margin-bottom: 2.2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.tool-intro-heading {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-1);
+    letter-spacing: 0.04em;
+    margin-bottom: 1.1rem;
+}
+
+.tool-intro-body p {
+    font-size: 0.95rem;
+    color: var(--text-2);
+    line-height: 1.75;
+    margin-bottom: 0.85rem;
+    max-width: 72ch;
+}
+
+.tool-intro-body p:last-child {
+    margin-bottom: 0;
+}
+
+.tool-intro-analogy {
+    color: var(--gold-soft) !important;
+    font-style: italic;
+    border-left: 2px solid var(--card-border-h);
+    padding-left: 1rem;
+}
+
 /* ── Master tab layout ─────────────────────────────────────────── */
 
 .section-heading {
