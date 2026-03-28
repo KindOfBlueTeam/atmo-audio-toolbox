@@ -738,6 +738,55 @@ body::before {
     padding-bottom: 1rem;
 }
 
+/* Upload box — file selected state */
+.upload-box.has-file .upload-icon,
+.upload-box.has-file h3,
+.upload-box.has-file > p,
+.upload-box.has-file .btn {
+    display: none;
+}
+
+.upload-box.has-file {
+    cursor: pointer;
+    justify-content: center;
+}
+
+.master-selected-name {
+    display: none;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-1);
+    text-align: center;
+    word-break: break-word;
+    line-height: 1.3;
+    padding: 0 0.5rem;
+}
+
+.upload-box.has-file .master-selected-name {
+    display: block;
+}
+
+/* Master CTA button — glowing gold, clearly the next action */
+.btn-master-cta {
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+    color: #000;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    border: none;
+    box-shadow: 0 0 18px var(--gold-glow), 0 0 6px rgba(200, 150, 12, 0.4);
+    animation: master-cta-pulse 2s ease-in-out infinite;
+}
+
+.btn-master-cta:hover {
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    box-shadow: 0 0 28px var(--gold-glow), 0 0 10px rgba(200, 150, 12, 0.6);
+}
+
+@keyframes master-cta-pulse {
+    0%, 100% { box-shadow: 0 0 18px var(--gold-glow), 0 0 6px rgba(200, 150, 12, 0.4); }
+    50%       { box-shadow: 0 0 32px rgba(200, 150, 12, 0.5), 0 0 14px rgba(200, 150, 12, 0.7); }
+}
+
 /* Result box — same border style as upload boxes but distinct pending state */
 .master-result-box {
     cursor: default;

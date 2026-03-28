@@ -53,11 +53,9 @@ class MIDIAnalysisApp {
             masterTargetBox:       document.getElementById('masterTargetBox'),
             masterTargetInput:     document.getElementById('masterTargetInput'),
             masterTargetBrowseBtn: document.getElementById('masterTargetBrowseBtn'),
-            masterTargetFileName:  document.getElementById('masterTargetFileName'),
             masterReferenceBox:       document.getElementById('masterReferenceBox'),
             masterReferenceInput:     document.getElementById('masterReferenceInput'),
             masterReferenceBrowseBtn: document.getElementById('masterReferenceBrowseBtn'),
-            masterReferenceFileName:  document.getElementById('masterReferenceFileName'),
             masterSubmitBtn:        document.getElementById('masterSubmitBtn'),
             masterResultPending:    document.getElementById('masterResultPending'),
             masterResultComplete:   document.getElementById('masterResultComplete'),
@@ -220,7 +218,12 @@ class MIDIAnalysisApp {
             });
         });
 
-        // Master tab — target file
+        // Master tab — target file (box click re-selects when file already chosen)
+        this.elements.masterTargetBox.addEventListener('click', (e) => {
+            if (this.elements.masterTargetBox.classList.contains('has-file') && !e.target.closest('button')) {
+                this.elements.masterTargetInput.click();
+            }
+        });
         this.elements.masterTargetBrowseBtn.addEventListener('click', () => {
             this.elements.masterTargetInput.click();
         });
@@ -240,7 +243,12 @@ class MIDIAnalysisApp {
             if (e.dataTransfer.files.length > 0) this.handleMasterFileSelect('target', e.dataTransfer.files[0]);
         });
 
-        // Master tab — reference file
+        // Master tab — reference file (box click re-selects when file already chosen)
+        this.elements.masterReferenceBox.addEventListener('click', (e) => {
+            if (this.elements.masterReferenceBox.classList.contains('has-file') && !e.target.closest('button')) {
+                this.elements.masterReferenceInput.click();
+            }
+        });
         this.elements.masterReferenceBrowseBtn.addEventListener('click', () => {
             this.elements.masterReferenceInput.click();
         });
@@ -888,14 +896,15 @@ class MIDIAnalysisApp {
             return;
         }
         this.hideMasterError();
+        const box  = slot === 'target' ? this.elements.masterTargetBox : this.elements.masterReferenceBox;
+        const stem = file.name.replace(/\.[^.]+$/, '');
+        box.querySelector('.master-selected-name').textContent = stem;
+        box.classList.add('has-file');
+
         if (slot === 'target') {
             this.masterTargetFile = file;
-            this.elements.masterTargetFileName.textContent = `🎵 ${file.name} (${this.formatFileSize(file.size)})`;
-            this.elements.masterTargetFileName.style.display = 'block';
         } else {
             this.masterReferenceFile = file;
-            this.elements.masterReferenceFileName.textContent = `🎼 ${file.name} (${this.formatFileSize(file.size)})`;
-            this.elements.masterReferenceFileName.style.display = 'block';
         }
         if (this.masterTargetFile && this.masterReferenceFile) {
             this.elements.masterSubmitBtn.style.display = 'inline-block';
@@ -996,9 +1005,11 @@ class MIDIAnalysisApp {
         this.masterReferenceFile = null;
         this.elements.masterTargetInput.value    = '';
         this.elements.masterReferenceInput.value = '';
-        this.elements.masterTargetFileName.style.display    = 'none';
-        this.elements.masterReferenceFileName.style.display = 'none';
-        this.elements.masterSubmitBtn.style.display         = 'none';
+        this.elements.masterTargetBox.classList.remove('has-file');
+        this.elements.masterReferenceBox.classList.remove('has-file');
+        this.elements.masterTargetBox.querySelector('.master-selected-name').textContent    = '';
+        this.elements.masterReferenceBox.querySelector('.master-selected-name').textContent = '';
+        this.elements.masterSubmitBtn.style.display = 'none';
         this.elements.masterResultPending.style.display     = '';
         this.elements.masterResultComplete.style.display    = 'none';
         this.elements.masterLogStream.innerHTML             = '';
