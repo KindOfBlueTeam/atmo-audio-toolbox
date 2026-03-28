@@ -24,7 +24,7 @@
     --success:       #10b981;
     --error:         #ef4444;
     --border:        rgba(200, 150, 12, 0.10);
-    --sidebar-width: 220px;
+    --sidebar-width: 260px;
     /* Tungsten / incandescent CTA */
     --tungsten:      #c06818;
     --tungsten-hot:  #ff9a30;
@@ -315,7 +315,7 @@ body::before {
     padding: 2.5rem 2.5rem 8rem;
 }
 
-.tab-content { max-width: 1060px; }
+.tab-content { max-width: none; }
 
 /* ── Upload ───────────────────────────────────────────────────────────────── */
 
@@ -643,7 +643,7 @@ body::before {
 
 .results-container {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 1.25rem; margin-bottom: 1.5rem;
     align-items: start;
 }
@@ -948,8 +948,8 @@ body::before {
     bottom: 0;
     /* Match main-content's left padding so our centre = tab-content centre */
     left: calc(var(--sidebar-width) + 2.5rem);
-    right: 0;
-    max-width: 1060px;   /* same cap as .tab-content */
+    right: 2.5rem;
+    max-width: none;
     padding: 1.2rem 0 1.6rem;
     background: linear-gradient(to top, var(--bg) 60%, transparent 100%);
     z-index: 100;
@@ -1026,11 +1026,14 @@ body::before {
 }
 
 .page-banner img {
-    width: 100%;
+    position: absolute;
+    width: calc(50% + 700px);
     height: 100%;
     object-fit: cover;
     object-position: center top;
-    display: block;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 /* ── Tool intro description ────────────────────────────────────── */
