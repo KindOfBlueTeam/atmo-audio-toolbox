@@ -266,6 +266,20 @@ def create_app():
         .results-container {
             grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
         }
+        /* Banner scales at half the rate of window resizing.
+           Formula: calc(50% + half-the-image-width). At 0px container the
+           image is 700px wide; at 1400px it is 1400px — only half the delta
+           of the window. The 1400x600 image stays >= 300px tall at all widths,
+           so no zoom-in is needed to fill the banner height. */
+        .page-banner img {
+            position: absolute;
+            width: calc(50% + 700px);
+            height: auto;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            object-fit: none;
+        }
     """
 
     _LAYOUT_D = """
