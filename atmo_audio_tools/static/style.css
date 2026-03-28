@@ -823,7 +823,7 @@ body::before {
 }
 
 .btn-master-cta.flashing {
-    animation: master-led-flash 1.8s ease-in-out infinite;
+    animation: master-led-flash 2.34s ease-in-out infinite;
 }
 
 .btn-master-cta:hover {
