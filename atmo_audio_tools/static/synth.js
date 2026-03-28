@@ -567,6 +567,7 @@ class SynthUI {
         this._lfoDestRow   = null;
 
         this._build();
+        this._loadDemo('just_chill.mid');
     }
 
     // Lazy AudioContext — created on first user gesture
