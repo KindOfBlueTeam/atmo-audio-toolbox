@@ -642,17 +642,6 @@
                     </div>
                 </div>
 
-                <section class="upload-section">
-                    <div class="upload-box" id="specUploadBox">
-                        <h2>Upload Audio File</h2>
-                        <p>WAV · AIFF · FLAC · OGG · MP3</p>
-                        <input type="file" id="specInput" accept=".wav,.aif,.aiff,.flac,.ogg,.mp3" hidden>
-                        <button id="specBrowseBtn" class="btn btn-primary">Choose File</button>
-                    </div>
-                    <div id="specFileName" class="file-name" style="display:none;"></div>
-                    <button id="specAnalyzeBtn" class="btn btn-analyze" style="display:none; margin-top:1.2rem;">Analyze Spectrum</button>
-                </section>
-
                 <div id="spectrogramResult" style="display:none;" class="spectrogram-result">
                     <div class="spectrogram-header">
                         <span class="fi-name" id="specResFilename"></span>
@@ -668,6 +657,17 @@
                         <button id="specResetBtn" class="btn btn-secondary">Analyze Another File</button>
                     </div>
                 </div>
+
+                <section class="upload-section">
+                    <div class="upload-box" id="specUploadBox">
+                        <h2>Upload Audio File</h2>
+                        <p>WAV · AIFF · FLAC · OGG · MP3</p>
+                        <input type="file" id="specInput" accept=".wav,.aif,.aiff,.flac,.ogg,.mp3" hidden>
+                        <button id="specBrowseBtn" class="btn btn-primary">Choose File</button>
+                    </div>
+                    <div id="specFileName" class="file-name" style="display:none;"></div>
+                    <button id="specAnalyzeBtn" class="btn btn-analyze" style="display:none; margin-top:1.2rem;">Analyze Spectrum</button>
+                </section>
 
                 <div id="specErrorSection" style="display:none;" class="error-section">
                     <div class="error-box">
