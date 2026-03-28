@@ -881,6 +881,40 @@ body::before {
     }
 }
 
+/* Master slot "Choose File" — studio console LED, bright green */
+.master-slot .btn-primary {
+    background: #006600;
+    color: #d4ffd4;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    border-top:    2px solid rgba(120, 255, 120, 0.35);
+    border-bottom: 2px solid rgba(0, 0, 0, 0.55);
+    border-left:   1px solid rgba(0, 120, 0, 0.55);
+    border-right:  1px solid rgba(0, 120, 0, 0.55);
+    border-radius: 3px;
+    text-shadow: 0 0 10px rgba(80, 255, 80, 0.8);
+    box-shadow:
+        0 0 22px rgba(0, 220, 0, 0.55),
+        0 0 50px rgba(0, 220, 0, 0.20),
+        inset 0 1px 0 rgba(120, 255, 120, 0.20),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+.master-slot .btn-primary:hover {
+    background: #00aa00;
+    box-shadow:
+        0 0 35px rgba(0, 220, 0, 0.85),
+        0 0 70px rgba(0, 220, 0, 0.40),
+        inset 0 1px 0 rgba(140, 255, 140, 0.35);
+    color: #ffffff;
+    text-shadow: 0 0 12px rgba(80, 255, 80, 1);
+}
+.master-slot .btn-primary:active {
+    transform: translateY(1px);
+    box-shadow:
+        0 0 14px rgba(0, 200, 0, 0.5),
+        inset 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
 /* Result box — same border style as upload boxes but distinct pending state */
 .master-result-box {
     cursor: default;
