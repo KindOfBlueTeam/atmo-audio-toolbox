@@ -891,10 +891,21 @@ body::before {
 .master-slot {
     width: 100%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.master-slot-label {
+    flex: 0 0 200px;
+    font-size: 0.95rem;
+    color: var(--text-2);
+    font-style: italic;
+    line-height: 1.5;
 }
 
 .master-slot .upload-box {
+    flex: 1;
     max-width: none;
     width: 100%;
     padding: 1.5rem 2rem;
