@@ -20,7 +20,8 @@ from .analyzer import MIDIAnalyzer
 from .audio_analyzer import analyze_audio
 
 _AUDIO_EXTENSIONS = {'.wav', '.aif', '.aiff', '.flac', '.ogg', '.mp3'}
-_AUDIO_MAX_BYTES  = 100 * 1024 * 1024  # 100 MB
+_AUDIO_MAX_BYTES  = 100 * 1024 * 1024  # 100 MB per file
+_REQUEST_MAX_BYTES = 250 * 1024 * 1024  # 250 MB total (mastering sends two files)
 
 # Limit concurrent audio analyses — each one peaks at ~2 GB RAM
 _AUDIO_SEMAPHORE  = threading.Semaphore(2)
@@ -157,7 +158,7 @@ def create_app():
         template_folder=str(Path(__file__).parent / 'templates'),
         static_folder=str(Path(__file__).parent / 'static'),
     )
-    app.config['MAX_CONTENT_LENGTH'] = _AUDIO_MAX_BYTES  # covers audio uploads
+    app.config['MAX_CONTENT_LENGTH'] = _REQUEST_MAX_BYTES  # mastering sends two files
 
     @app.after_request
     def set_security_headers(response):
@@ -803,7 +804,7 @@ def create_app():
 
     @app.errorhandler(413)
     def request_entity_too_large(error):
-        return jsonify({'error': 'File too large. Maximum size is 16MB'}), 413
+        return jsonify({'error': 'Request too large. Maximum is 100 MB per file (250 MB total for mastering)'}), 413
 
     return app
 
