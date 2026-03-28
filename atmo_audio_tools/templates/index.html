@@ -17,11 +17,9 @@
         <aside class="sidebar">
 
             <div class="sidebar-logo">
-                <img src="{{ url_for('static', filename='img/atmo-records-logo-test.png') }}" alt="Atmo Records" class="logo-img">
-                <div class="logo-wordmark">
-                    <span class="logo-title">Atmo Audio</span>
-                    <span class="logo-title">Tools</span>
-                </div>
+                <a href="https://www.atmo-records.com/artists" target="_blank" rel="noopener noreferrer">
+                    <img src="{{ url_for('static', filename='img/atmo-logo-no-text.png') }}" alt="Atmo Records" class="logo-img">
+                </a>
             </div>
 
             <nav class="sidebar-nav">
@@ -47,9 +45,8 @@
                     <button class="tab-btn" data-tab="sheet">
                         <span class="nav-label">MIDI to Sheet</span>
                     </button>
-                    <button class="tab-btn" disabled>
+                    <button class="tab-btn" data-tab="convert">
                         <span class="nav-label">WAV / MP3</span>
-                        <span class="nav-coming-soon">Soon</span>
                     </button>
                 </div>
 
@@ -59,7 +56,10 @@
                         <span class="nav-label">Stem Splitter</span>
                     </button>
                     <button class="tab-btn premium" data-tab="master">
-                        <span class="nav-label">Mastering</span>
+                        <span class="nav-label">Re-Mastering</span>
+                    </button>
+                    <button class="tab-btn premium" data-tab="synth">
+                        <span class="nav-label">Atmo Synth</span>
                     </button>
                 </div>
 
@@ -91,6 +91,10 @@
 
             <!-- ═══════════════════════════ MIDI TAB ═══════════════════════════ -->
             <div id="midiTab" class="tab-content" style="display:none;">
+
+                <div class="page-banner">
+                    <img src="{{ url_for('static', filename='img/mixing-console-banner.png') }}" alt="">
+                </div>
 
                 <div class="tool-intro">
                     <h2 class="tool-intro-heading">MIDI Analysis</h2>
@@ -227,6 +231,10 @@
 
             <!-- ══════════════════════════ AUDIO TAB ═══════════════════════════ -->
             <div id="audioTab" class="tab-content">
+
+                <div class="page-banner">
+                    <img src="{{ url_for('static', filename='img/mixing-console-banner.png') }}" alt="">
+                </div>
 
                 <div class="tool-intro">
                     <h2 class="tool-intro-heading">Audio Analysis</h2>
@@ -423,8 +431,12 @@
             <!-- ═══════════════════════════ MASTER TAB ══════════════════════════ -->
             <div id="masterTab" class="tab-content" style="display:none;">
 
+                <div class="page-banner">
+                    <img src="{{ url_for('static', filename='img/mixing-console-banner.png') }}" alt="">
+                </div>
+
                 <div class="tool-intro">
-                    <h2 class="tool-intro-heading">Reference Mastering</h2>
+                    <h2 class="tool-intro-heading">Reference Mastering <span class="premium-badge">Premium</span></h2>
                     <div class="tool-intro-body">
                         <p>This tool helps your track sound more polished by comparing it to a song you like and adjusting yours to match.</p>
                         <p>Instead of manually tweaking dozens of settings, it listens to both tracks and aligns things like tone, loudness, and overall balance so your music sits closer to a professional reference.</p>
@@ -516,6 +528,10 @@
             <!-- ══════════════════════════ LOUDNESS TAB ════════════════════════ -->
             <div id="loudnessTab" class="tab-content" style="display:none;">
 
+                <div class="page-banner">
+                    <img src="{{ url_for('static', filename='img/mixing-console-banner.png') }}" alt="">
+                </div>
+
                 <div class="tool-intro">
                     <h2 class="tool-intro-heading">Loudness Normalizer</h2>
                     <div class="tool-intro-body">
@@ -588,6 +604,10 @@
             <!-- ══════════════════════════ SHEET TAB ═══════════════════════════ -->
             <div id="sheetTab" class="tab-content" style="display:none;">
 
+                <div class="page-banner">
+                    <img src="{{ url_for('static', filename='img/mixing-console-banner.png') }}" alt="">
+                </div>
+
                 <div class="tool-intro">
                     <h2 class="tool-intro-heading">MIDI to Sheet Music</h2>
                     <div class="tool-intro-body">
@@ -630,8 +650,71 @@
 
             </div><!-- /sheetTab -->
 
+            <!-- ══════════════════════════ CONVERT TAB ════════════════════════ -->
+            <div id="convertTab" class="tab-content" style="display:none;">
+
+                <div class="page-banner">
+                    <img src="{{ url_for('static', filename='img/mixing-console-banner.png') }}" alt="">
+                </div>
+
+                <div class="tool-intro">
+                    <h2 class="tool-intro-heading">WAV / MP3 Converter</h2>
+                    <div class="tool-intro-body">
+                        <p>WAV files are uncompressed audio — full quality, large file size. MP3 is a compressed format that trades a small amount of quality for dramatically smaller files, making it ideal for streaming, sharing, or embedding on a website.</p>
+                        <p>This tool converts between WAV, MP3, FLAC, OGG, and AIFF. Upload your file, choose a target format, and download the result instantly. No quality settings to configure — conversions to WAV and FLAC always use 24-bit depth.</p>
+                        <p class="tool-intro-analogy">Think of it like changing a document between PDF and Word — same content, different container.</p>
+                    </div>
+                </div>
+
+                <section class="upload-section">
+                    <div class="upload-box" id="convertUploadBox">
+                        <h2>Upload Audio File</h2>
+                        <p>WAV · MP3 · AIFF · FLAC · OGG</p>
+                        <input type="file" id="convertInput" accept=".wav,.mp3,.aif,.aiff,.flac,.ogg" hidden>
+                        <button id="convertBrowseBtn" class="btn btn-primary">Choose File</button>
+                    </div>
+                    <div id="convertFileName" class="file-name" style="display:none;"></div>
+
+                    <div id="convertFormatSection" class="convert-format-section" style="display:none;">
+                        <div class="convert-select-row">
+                            <label for="convertFormat" class="convert-label">Convert to</label>
+                            <select id="convertFormat" class="convert-select">
+                                <option value="wav">WAV — Uncompressed, 24-bit</option>
+                                <option value="mp3">MP3 — Compressed, smaller file</option>
+                                <option value="flac">FLAC — Lossless compressed</option>
+                                <option value="aiff">AIFF — Apple uncompressed</option>
+                                <option value="ogg">OGG — Open source compressed</option>
+                            </select>
+                        </div>
+                        <button id="convertSubmitBtn" class="btn btn-cta" style="margin-top:1.2rem;">Convert</button>
+                    </div>
+                </section>
+
+                <div id="convertResult" class="convert-result" style="display:none;">
+                    <div class="convert-result-inner">
+                        <div class="convert-done-title">Conversion Complete</div>
+                        <p id="convertResultMsg" class="convert-done-sub"></p>
+                        <a id="convertDownloadLink" class="btn btn-master-cta convert-dl-btn" download>Download</a>
+                        <button id="convertResetBtn" class="btn btn-secondary">Convert Another</button>
+                    </div>
+                </div>
+
+                <div id="convertErrorSection" style="display:none;" class="error-section">
+                    <div class="error-box">
+                        <h3>&#10008; Error</h3>
+                        <p id="convertErrorMessage"></p>
+                        <button id="convertRetryBtn" class="btn btn-primary">Try Again</button>
+                    </div>
+                </div>
+
+            </div><!-- /convertTab -->
+
             <!-- ══════════════════════ SPECTROGRAM TAB ════════════════════════ -->
             <div id="spectrogramTab" class="tab-content" style="display:none;">
+
+                <div class="page-banner">
+                    <img src="{{ url_for('static', filename='img/mixing-console-banner.png') }}" alt="">
+                </div>
 
                 <div class="tool-intro">
                     <h2 class="tool-intro-heading">Spectral Analysis</h2>
@@ -682,6 +765,10 @@
             <!-- ══════════════════════════ STEMS TAB ═══════════════════════════ -->
             <div id="stemsTab" class="tab-content" style="display:none;">
 
+                <div class="page-banner">
+                    <img src="{{ url_for('static', filename='img/mixing-console-banner.png') }}" alt="">
+                </div>
+
                 <div class="tool-intro">
                     <h2 class="tool-intro-heading">Stem Splitter <span class="premium-badge">Premium</span></h2>
                     <div class="tool-intro-body">
@@ -720,6 +807,26 @@
 
             </div><!-- /stemsTab -->
 
+            <!-- ══════════════════════════ SYNTH TAB ══════════════════════════ -->
+            <div id="synthTab" class="tab-content" style="display:none;">
+
+                <div class="page-banner">
+                    <img src="{{ url_for('static', filename='img/mixing-console-banner.png') }}" alt="">
+                </div>
+
+                <div class="tool-intro">
+                    <h2 class="tool-intro-heading">Atmo Synth <span class="premium-badge">Premium</span></h2>
+                    <div class="tool-intro-body">
+                        <p>A 2-oscillator subtractive synthesizer built on the same principles as classic analog hardware like the Minimoog. Two oscillators generate raw waveforms, a resonant filter shapes the tone, and two ADSR envelopes control how the sound evolves over time.</p>
+                        <p>Play the keyboard with your mouse, or load a MIDI file and press Play to hear it through the synth. Drag any knob up or down to adjust it. The <strong>Electrofunk Bass</strong> preset is tuned for that punchy 1980s funk and R&amp;B sound.</p>
+                        <p class="tool-intro-analogy">Think of it like sculpting sound — you start with raw waves and carve away everything you don't want until only the tone you're after remains.</p>
+                    </div>
+                </div>
+
+                <div id="synthEngine" class="synth-engine"></div>
+
+            </div><!-- /synthTab -->
+
         </main>
 
     </div><!-- /app-shell -->
@@ -752,6 +859,7 @@
         </div>
     </div>
 
+    <script src="{{ url_for('static', filename='synth.js') }}"></script>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

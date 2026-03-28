@@ -34,6 +34,7 @@ _MASTER_JOBS: dict = {}
 _LOUDNESS_JOBS: dict = {}
 _SHEET_JOBS:   dict = {}
 _STEMS_JOBS:   dict = {}
+_CONVERT_JOBS: dict = {}
 _MASTER_JOB_TTL = 600  # seconds before temp files are cleaned up
 
 _LOUDNESS_PLATFORMS = {
@@ -70,6 +71,12 @@ def _cleanup_sheet_job(job_id: str) -> None:
 
 def _cleanup_stems_job(job_id: str) -> None:
     job = _STEMS_JOBS.pop(job_id, None)
+    if job and job.get('tmpdir'):
+        shutil.rmtree(job['tmpdir'], ignore_errors=True)
+
+
+def _cleanup_convert_job(job_id: str) -> None:
+    job = _CONVERT_JOBS.pop(job_id, None)
     if job and job.get('tmpdir'):
         shutil.rmtree(job['tmpdir'], ignore_errors=True)
 
@@ -940,6 +947,118 @@ def create_app():
             download_name=f"{job['filename']}-stems.zip",
         )
 
+    _MIDI_EXAMPLES_DIR = Path(__file__).parent.parent / 'midi_examples'
+
+    @app.route('/api/synth/demos')
+    def synth_demos():
+        """Return a sorted list of MIDI demo filenames."""
+        if not _MIDI_EXAMPLES_DIR.is_dir():
+            return jsonify({'demos': []})
+        names = sorted(
+            f.name for f in _MIDI_EXAMPLES_DIR.iterdir()
+            if f.suffix.lower() in ('.mid', '.midi')
+        )
+        return jsonify({'demos': names})
+
+    @app.route('/api/synth/demos/<path:filename>')
+    def synth_demo_load(filename):
+        """Parse a bundled demo MIDI file and return note events."""
+        safe = os.path.basename(filename)
+        path = _MIDI_EXAMPLES_DIR / safe
+        if not path.is_file() or path.suffix.lower() not in ('.mid', '.midi'):
+            return jsonify({'error': 'Demo not found'}), 404
+        try:
+            file_data      = _sanitize_midi_bytes(path.read_bytes())
+            mid            = mido.MidiFile(file=io.BytesIO(file_data))
+            ticks_per_beat = mid.ticks_per_beat
+            tempo          = 500000
+            bpm            = 120.0
+            abs_time       = 0.0
+            note_on_map    = {}
+            events         = []
+            for msg in mido.merge_tracks(mid.tracks):
+                abs_time += mido.tick2second(msg.time, ticks_per_beat, tempo)
+                if msg.type == 'set_tempo':
+                    tempo = msg.tempo
+                    bpm   = round(60_000_000 / tempo, 2)
+                elif msg.type == 'note_on' and msg.velocity > 0:
+                    note_on_map[(msg.note, getattr(msg, 'channel', 0))] = (abs_time, msg.velocity)
+                elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
+                    key = (msg.note, getattr(msg, 'channel', 0))
+                    if key in note_on_map:
+                        start, vel = note_on_map.pop(key)
+                        dur = abs_time - start
+                        if dur > 0:
+                            events.append({
+                                'note':     msg.note,
+                                'time':     round(start, 4),
+                                'duration': round(max(dur, 0.05), 4),
+                                'velocity': vel,
+                            })
+            events.sort(key=lambda e: e['time'])
+            events = events[:300]
+            return jsonify({'events': events, 'bpm': bpm,
+                            'event_count': len(events), 'filename': safe})
+        except Exception as exc:
+            app.logger.error("Demo MIDI parse failed: %s", exc, exc_info=True)
+            return jsonify({'error': f'Parse failed: {exc}'}), 400
+
+    @app.route('/api/synth/parse-midi', methods=['POST'])
+    def synth_parse_midi():
+        """Parse a MIDI file and return note events as JSON for the browser synth."""
+        if 'midi_file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        file = request.files['midi_file']
+        if not file or not file.filename:
+            return jsonify({'error': 'No file selected'}), 400
+        safe_name = os.path.basename(file.filename)
+        if not safe_name.lower().endswith(('.mid', '.midi')):
+            return jsonify({'error': 'File must be a MIDI file (.mid or .midi)'}), 400
+
+        try:
+            file_data     = _sanitize_midi_bytes(file.read())
+            mid           = mido.MidiFile(file=io.BytesIO(file_data))
+            ticks_per_beat = mid.ticks_per_beat
+            tempo          = 500000  # default 120 BPM
+            bpm            = 120.0
+
+            abs_time    = 0.0
+            note_on_map = {}   # (note, channel) → (start_sec, velocity)
+            events      = []
+
+            for msg in mido.merge_tracks(mid.tracks):
+                abs_time += mido.tick2second(msg.time, ticks_per_beat, tempo)
+                if msg.type == 'set_tempo':
+                    tempo = msg.tempo
+                    bpm   = round(60_000_000 / tempo, 2)
+                elif msg.type == 'note_on' and msg.velocity > 0:
+                    note_on_map[(msg.note, getattr(msg, 'channel', 0))] = (abs_time, msg.velocity)
+                elif msg.type == 'note_off' or (msg.type == 'note_on' and msg.velocity == 0):
+                    key = (msg.note, getattr(msg, 'channel', 0))
+                    if key in note_on_map:
+                        start, vel = note_on_map.pop(key)
+                        dur = abs_time - start
+                        if dur > 0:
+                            events.append({
+                                'note':     msg.note,
+                                'time':     round(start, 4),
+                                'duration': round(max(dur, 0.05), 4),
+                                'velocity': vel,
+                            })
+
+            events.sort(key=lambda e: e['time'])
+            events = events[:300]
+
+            return jsonify({
+                'events':      events,
+                'bpm':         bpm,
+                'event_count': len(events),
+                'filename':    safe_name,
+            })
+        except Exception as exc:
+            app.logger.error("Synth MIDI parse failed: %s", exc, exc_info=True)
+            return jsonify({'error': f'MIDI parse failed: {exc}'}), 400
+
     @app.route('/api/sheet', methods=['POST'])
     def midi_to_sheet():
         """
@@ -1024,6 +1143,109 @@ def create_app():
             mimetype='application/vnd.recordare.musicxml+xml',
             as_attachment=True,
             download_name=f"{job['stem']}.musicxml",
+        )
+
+    @app.route('/api/convert', methods=['POST'])
+    def convert_audio():
+        """
+        Convert an audio file between WAV and MP3 (or other supported formats).
+
+        Expects multipart form with:
+          - 'audio': the source audio file
+          - 'target_format': 'wav' or 'mp3'
+
+        Returns JSON with job_id and download_name on success.
+        """
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+
+        file = request.files['audio']
+        if not file or not file.filename:
+            return jsonify({'error': 'No file selected'}), 400
+
+        safe_name = os.path.basename(file.filename)
+        src_ext = os.path.splitext(safe_name)[1].lower()
+        if src_ext not in _AUDIO_EXTENSIONS:
+            return jsonify({'error': f'Unsupported format "{src_ext}". Use WAV, MP3, AIFF, FLAC, or OGG.'}), 400
+
+        target_fmt = request.form.get('target_format', 'wav').lower().strip('.')
+        if target_fmt not in ('wav', 'mp3', 'flac', 'ogg', 'aiff'):
+            return jsonify({'error': f'Unsupported target format "{target_fmt}"'}), 400
+
+        src_fmt = src_ext.lstrip('.')
+        if src_fmt in ('aif',):
+            src_fmt = 'aiff'
+        if src_fmt == target_fmt:
+            return jsonify({'error': f'File is already {target_fmt.upper()}'}), 400
+
+        try:
+            file_data = file.read()
+            if len(file_data) > _AUDIO_MAX_BYTES:
+                return jsonify({'error': 'File too large. Maximum size is 100 MB'}), 400
+
+            data, rate = sf.read(io.BytesIO(file_data), always_2d=True)
+
+            stem = os.path.splitext(safe_name)[0]
+            download_name = f'{stem}.{target_fmt}'
+
+            # Subtype selection
+            if target_fmt == 'mp3':
+                subtype = 'MPEG_LAYER_III'
+            elif target_fmt == 'flac':
+                subtype = 'PCM_24'
+            elif target_fmt in ('wav', 'aiff'):
+                subtype = 'PCM_24'
+            else:
+                subtype = None  # soundfile default
+
+            tmpdir   = tempfile.mkdtemp()
+            out_path = os.path.join(tmpdir, download_name)
+
+            write_kwargs = {'subtype': subtype} if subtype else {}
+            sf.write(out_path, data, rate, **write_kwargs)
+
+            job_id = str(uuid.uuid4())
+            _CONVERT_JOBS[job_id] = {
+                'tmpdir':        tmpdir,
+                'download_name': download_name,
+                'target_fmt':    target_fmt,
+            }
+            Timer(_MASTER_JOB_TTL, _cleanup_convert_job, args=[job_id]).start()
+
+            return jsonify({
+                'job_id':        job_id,
+                'download_name': download_name,
+                'source_fmt':    src_fmt,
+                'target_fmt':    target_fmt,
+                'sample_rate':   rate,
+                'channels':      data.shape[1] if data.ndim > 1 else 1,
+            }), 200
+
+        except Exception as exc:
+            app.logger.error("Audio conversion failed: %s", exc, exc_info=True)
+            return jsonify({'error': f'Conversion failed: {exc}'}), 400
+
+    @app.route('/api/convert/download/<job_id>')
+    def convert_download(job_id):
+        """Download the converted audio file."""
+        job = _CONVERT_JOBS.get(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found or expired'}), 404
+
+        out_path = os.path.join(job['tmpdir'], job['download_name'])
+        mime_map = {
+            'wav':  'audio/wav',
+            'mp3':  'audio/mpeg',
+            'flac': 'audio/flac',
+            'ogg':  'audio/ogg',
+            'aiff': 'audio/aiff',
+        }
+        mime = mime_map.get(job['target_fmt'], 'application/octet-stream')
+        return send_file(
+            out_path,
+            mimetype=mime,
+            as_attachment=True,
+            download_name=job['download_name'],
         )
 
     @app.errorhandler(413)

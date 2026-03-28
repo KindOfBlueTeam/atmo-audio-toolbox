@@ -128,6 +128,21 @@ class MIDIAnalysisApp {
             stemsErrorSection: document.getElementById('stemsErrorSection'),
             stemsErrorMessage: document.getElementById('stemsErrorMessage'),
             stemsRetryBtn:     document.getElementById('stemsRetryBtn'),
+            // Convert tab
+            convertUploadBox:    document.getElementById('convertUploadBox'),
+            convertInput:        document.getElementById('convertInput'),
+            convertBrowseBtn:    document.getElementById('convertBrowseBtn'),
+            convertFileName:     document.getElementById('convertFileName'),
+            convertFormatSection: document.getElementById('convertFormatSection'),
+            convertFormat:       document.getElementById('convertFormat'),
+            convertSubmitBtn:    document.getElementById('convertSubmitBtn'),
+            convertResult:       document.getElementById('convertResult'),
+            convertResultMsg:    document.getElementById('convertResultMsg'),
+            convertDownloadLink: document.getElementById('convertDownloadLink'),
+            convertResetBtn:     document.getElementById('convertResetBtn'),
+            convertErrorSection: document.getElementById('convertErrorSection'),
+            convertErrorMessage: document.getElementById('convertErrorMessage'),
+            convertRetryBtn:     document.getElementById('convertRetryBtn'),
         };
     }
 
@@ -411,6 +426,25 @@ class MIDIAnalysisApp {
         this.elements.specAnalyzeBtn.addEventListener('click', () => this.submitSpectrogram());
         this.elements.specResetBtn.addEventListener('click', () => this.resetSpectrogram());
         this.elements.specRetryBtn.addEventListener('click', () => this.resetSpectrogram());
+
+        // Convert tab
+        this.elements.convertBrowseBtn.addEventListener('click', () => this.elements.convertInput.click());
+        this.elements.convertInput.addEventListener('change', (e) => this.handleConvertFileSelect(e.target.files[0]));
+        this.elements.convertUploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.elements.convertUploadBox.classList.add('dragover');
+        });
+        this.elements.convertUploadBox.addEventListener('dragleave', () => {
+            this.elements.convertUploadBox.classList.remove('dragover');
+        });
+        this.elements.convertUploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.elements.convertUploadBox.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) this.handleConvertFileSelect(e.dataTransfer.files[0]);
+        });
+        this.elements.convertSubmitBtn.addEventListener('click', () => this.submitConvert());
+        this.elements.convertResetBtn.addEventListener('click', () => this.resetConvert());
+        this.elements.convertRetryBtn.addEventListener('click', () => this.resetConvert());
 
         // Re-render spectrogram on window resize
         window.addEventListener('resize', () => {
@@ -987,6 +1021,8 @@ class MIDIAnalysisApp {
         document.getElementById('sheetTab').style.display         = tab === 'sheet'       ? '' : 'none';
         document.getElementById('stemsTab').style.display         = tab === 'stems'       ? '' : 'none';
         document.getElementById('spectrogramTab').style.display   = tab === 'spectrogram' ? '' : 'none';
+        document.getElementById('synthTab').style.display          = tab === 'synth'        ? '' : 'none';
+        document.getElementById('convertTab').style.display        = tab === 'convert'      ? '' : 'none';
     }
 
     // ── Audio file handling ───────────────────────────────────────────────────
@@ -1671,6 +1707,96 @@ class MIDIAnalysisApp {
 
     hideStemsError() {
         this.elements.stemsErrorSection.style.display = 'none';
+    }
+
+    // ── Convert tab ───────────────────────────────────────────────────────────
+
+    handleConvertFileSelect(file) {
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['wav', 'mp3', 'aif', 'aiff', 'flac', 'ogg'].includes(ext)) {
+            this.showConvertError('Please select an audio file (.wav, .mp3, .aiff, .flac, .ogg)');
+            return;
+        }
+        this.convertFile = file;
+        this.elements.convertFileName.textContent   = `${file.name} (${this.formatFileSize(file.size)})`;
+        this.elements.convertFileName.style.display = 'block';
+        this.elements.convertResult.style.display   = 'none';
+        this.hideConvertError();
+
+        // Pre-select the opposite format as a sensible default
+        const fmt = this.elements.convertFormat;
+        if (ext === 'mp3') {
+            fmt.value = 'wav';
+        } else if (ext === 'wav') {
+            fmt.value = 'mp3';
+        }
+        // Remove the current source format from the dropdown options
+        Array.from(fmt.options).forEach(opt => {
+            opt.disabled = (opt.value === ext || (ext === 'aif' && opt.value === 'aiff'));
+        });
+
+        this.elements.convertFormatSection.style.display = 'block';
+    }
+
+    async submitConvert() {
+        if (!this.convertFile) return;
+        this.elements.convertSubmitBtn.disabled = true;
+        this.showGlobalLoading('Converting…');
+        this.hideConvertError();
+
+        const fd = new FormData();
+        fd.append('audio', this.convertFile);
+        fd.append('target_format', this.elements.convertFormat.value);
+
+        try {
+            const resp = await fetch('/api/convert', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Conversion failed');
+
+            const fmtUpper  = data.target_fmt.toUpperCase();
+            const srcUpper  = data.source_fmt.toUpperCase();
+            const channels  = data.channels === 1 ? 'Mono' : 'Stereo';
+            const sr        = (data.sample_rate / 1000).toFixed(1);
+
+            this.elements.convertResultMsg.textContent =
+                `${srcUpper} → ${fmtUpper} · ${channels} · ${sr} kHz`;
+
+            const dlUrl = `/api/convert/download/${data.job_id}`;
+            this.elements.convertDownloadLink.href             = dlUrl;
+            this.elements.convertDownloadLink.download         = data.download_name;
+            this.elements.convertDownloadLink.textContent      = `Download ${fmtUpper}`;
+            this.elements.convertFormatSection.style.display   = 'none';
+            this.elements.convertResult.style.display          = 'block';
+        } catch (err) {
+            this.showConvertError(err.message);
+        } finally {
+            this.elements.convertSubmitBtn.disabled = false;
+            this.hideGlobalLoading();
+        }
+    }
+
+    resetConvert() {
+        this.convertFile = null;
+        this.elements.convertInput.value                    = '';
+        this.elements.convertFileName.style.display         = 'none';
+        this.elements.convertFileName.textContent           = '';
+        this.elements.convertFormatSection.style.display    = 'none';
+        this.elements.convertResult.style.display           = 'none';
+        // Re-enable all format options
+        Array.from(this.elements.convertFormat.options).forEach(opt => {
+            opt.disabled = false;
+        });
+        this.hideConvertError();
+    }
+
+    showConvertError(msg) {
+        this.elements.convertErrorMessage.textContent   = msg;
+        this.elements.convertErrorSection.style.display = 'block';
+    }
+
+    hideConvertError() {
+        this.elements.convertErrorSection.style.display = 'none';
     }
 
     // ── Audio results display ─────────────────────────────────────────────────
