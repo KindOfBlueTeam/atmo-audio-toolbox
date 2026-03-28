@@ -25,37 +25,48 @@
             </div>
 
             <nav class="sidebar-nav">
-                <div class="nav-section-label">Tools</div>
 
-                <button class="tab-btn active" data-tab="audio">
-                    <span class="nav-icon">🎵</span>
-                    <span class="nav-label">Audio Analysis</span>
-                </button>
+                <div class="nav-group">
+                    <div class="nav-group-label">Analysis</div>
+                    <button class="tab-btn active" data-tab="audio">
+                        <span class="nav-icon">🎵</span>
+                        <span class="nav-label">Audio</span>
+                    </button>
+                    <button class="tab-btn" data-tab="loudness">
+                        <span class="nav-icon">📢</span>
+                        <span class="nav-label">Loudness</span>
+                    </button>
+                    <button class="tab-btn" data-tab="midi">
+                        <span class="nav-icon">📁</span>
+                        <span class="nav-label">MIDI</span>
+                    </button>
+                </div>
 
-                <button class="tab-btn" data-tab="midi">
-                    <span class="nav-icon">📁</span>
-                    <span class="nav-label">MIDI Analysis</span>
-                </button>
+                <div class="nav-group">
+                    <div class="nav-group-label">Conversions</div>
+                    <button class="tab-btn" data-tab="sheet">
+                        <span class="nav-icon">🎼</span>
+                        <span class="nav-label">MIDI to Sheet</span>
+                    </button>
+                    <button class="tab-btn" disabled>
+                        <span class="nav-icon">🔄</span>
+                        <span class="nav-label">WAV / MP3</span>
+                        <span class="nav-coming-soon">Soon</span>
+                    </button>
+                </div>
 
-                <button class="tab-btn" data-tab="master">
-                    <span class="nav-icon">🎚️</span>
-                    <span class="nav-label">Mastering</span>
-                </button>
+                <div class="nav-group nav-group-premium">
+                    <div class="nav-group-label nav-group-label-premium">Studio ★</div>
+                    <button class="tab-btn premium" data-tab="stems">
+                        <span class="nav-icon">✂️</span>
+                        <span class="nav-label">Stem Splitter</span>
+                    </button>
+                    <button class="tab-btn premium" data-tab="master">
+                        <span class="nav-icon">🎚️</span>
+                        <span class="nav-label">Mastering</span>
+                    </button>
+                </div>
 
-                <button class="tab-btn" data-tab="loudness">
-                    <span class="nav-icon">📢</span>
-                    <span class="nav-label">Loudness</span>
-                </button>
-
-                <button class="tab-btn" data-tab="sheet">
-                    <span class="nav-icon">🎼</span>
-                    <span class="nav-label">MIDI to Sheet</span>
-                </button>
-
-                <button class="tab-btn premium" data-tab="stems">
-                    <span class="nav-icon">✂️</span>
-                    <span class="nav-label">Stem Splitter</span>
-                </button>
             </nav>
 
             <footer class="sidebar-footer">
@@ -635,7 +646,7 @@
                     <div class="tool-intro-body">
                         <p>A finished mix contains every instrument layered together into a single audio file. Sometimes you need to work with the individual parts — isolate the vocals to create an a cappella, extract the drums for a remix, or pull the bass out of a track you don't have the original session for.</p>
                         <p>This tool uses a state-of-the-art AI model to separate your audio into four stems: <strong>vocals</strong>, <strong>drums</strong>, <strong>bass</strong>, and <strong>other instruments</strong>. Each stem downloads as a separate WAV file at full quality.</p>
-                        <p class="tool-intro-analogy">Think of it like unscrambling an egg — the technology isn't perfect, but it's genuinely impressive how much of the original signal it recovers cleanly.</p>
+                        <p class="tool-intro-analogy">Think of it like a prism for music, but instead of colors it splits the song into individual instruments and voices.</p>
                     </div>
                     <div class="stems-warning">⏱ Processing takes 5–15 minutes depending on file length. This is normal — stem separation is computationally intensive.</div>
                 </div>

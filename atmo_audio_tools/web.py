@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import threading
 import uuid
+import zipfile
 from pathlib import Path
 from threading import Thread, Timer
 
@@ -856,6 +857,26 @@ def create_app():
             mimetype='audio/wav',
             as_attachment=True,
             download_name=f"{job['filename']}-{stem}.wav",
+        )
+
+    @app.route('/api/stems/download-zip/<job_id>')
+    def stems_download_zip(job_id):
+        """Download all stems as a single ZIP archive."""
+        job = _STEMS_JOBS.get(job_id)
+        if not job or job['status'] != 'complete':
+            return jsonify({'error': 'Job not ready or not found'}), 404
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for stem, path in job['stems'].items():
+                zf.write(path, arcname=f"{job['filename']}-{stem}.wav")
+        zip_buffer.seek(0)
+
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f"{job['filename']}-stems.zip",
         )
 
     @app.route('/api/sheet', methods=['POST'])

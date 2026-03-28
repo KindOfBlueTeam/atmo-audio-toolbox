@@ -1377,6 +1377,17 @@ class MIDIAnalysisApp {
             this.elements.stemsDownloadGrid.appendChild(a);
         });
 
+        // ZIP download button (full width, below the grid)
+        const existingZip = document.getElementById('stemsZipBtn');
+        if (existingZip) existingZip.remove();
+        const zipBtn = document.createElement('a');
+        zipBtn.id       = 'stemsZipBtn';
+        zipBtn.href     = `/api/stems/download-zip/${jobId}`;
+        zipBtn.download = `${data.filename}-stems.zip`;
+        zipBtn.className = 'btn btn-primary stems-zip-btn';
+        zipBtn.textContent = '⬇ Download All Stems as ZIP';
+        this.elements.stemsDownloadGrid.insertAdjacentElement('afterend', zipBtn);
+
         this.elements.stemsResultMsg.textContent = data.filename;
         this.elements.stemsResult.style.display  = 'block';
         this.hideGlobalLoading();
@@ -1391,6 +1402,8 @@ class MIDIAnalysisApp {
         this.elements.stemsSplitBtn.style.display   = 'none';
         this.elements.stemsResult.style.display     = 'none';
         this.elements.stemsDownloadGrid.innerHTML   = '';
+        const zipBtn = document.getElementById('stemsZipBtn');
+        if (zipBtn) zipBtn.remove();
         this.hideStemsError();
     }
 
