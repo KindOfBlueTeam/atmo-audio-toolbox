@@ -31,6 +31,9 @@
                     <button class="tab-btn active" data-tab="audio">
                         <span class="nav-label">Audio</span>
                     </button>
+                    <button class="tab-btn" data-tab="spectrogram">
+                        <span class="nav-label">Spectrogram</span>
+                    </button>
                     <button class="tab-btn" data-tab="loudness">
                         <span class="nav-label">Loudness</span>
                     </button>
@@ -626,6 +629,55 @@
                 </div>
 
             </div><!-- /sheetTab -->
+
+            <!-- ══════════════════════ SPECTROGRAM TAB ════════════════════════ -->
+            <div id="spectrogramTab" class="tab-content" style="display:none;">
+
+                <div class="tool-intro">
+                    <h2 class="tool-intro-heading">Spectral Analysis</h2>
+                    <div class="tool-intro-body">
+                        <p>Every sound you hear is made up of frequency components changing over time. A spectrogram makes this invisible structure visible — revealing where energy is concentrated across the frequency spectrum, and how that evolves through the duration of a track.</p>
+                        <p>Engineers use spectrograms to spot problem frequencies, check the high-end content of a mix, identify resonances, and understand the tonal fingerprint of a recording. Upload any audio file and see its full spectral portrait.</p>
+                        <p class="tool-intro-analogy">Think of it like an X-ray for audio — instead of bone and tissue, you see the harmonic content and texture of your music laid out across time and frequency.</p>
+                    </div>
+                </div>
+
+                <section class="upload-section">
+                    <div class="upload-box" id="specUploadBox">
+                        <h2>Upload Audio File</h2>
+                        <p>WAV · AIFF · FLAC · OGG · MP3</p>
+                        <input type="file" id="specInput" accept=".wav,.aif,.aiff,.flac,.ogg,.mp3" hidden>
+                        <button id="specBrowseBtn" class="btn btn-primary">Choose File</button>
+                    </div>
+                    <div id="specFileName" class="file-name" style="display:none;"></div>
+                    <button id="specAnalyzeBtn" class="btn btn-analyze" style="display:none; margin-top:1.2rem;">Analyze Spectrum</button>
+                </section>
+
+                <div id="spectrogramResult" style="display:none;" class="spectrogram-result">
+                    <div class="spectrogram-header">
+                        <span class="fi-name" id="specResFilename"></span>
+                        <span class="fi-sep">·</span>
+                        <span class="fi-item"><span class="fi-label">Duration</span> <span id="specResDuration"></span></span>
+                        <span class="fi-sep">·</span>
+                        <span class="fi-item"><span class="fi-label">Sample Rate</span> <span id="specResSR"></span></span>
+                    </div>
+                    <div class="spectrogram-wrap" id="spectrogramWrap">
+                        <canvas id="spectrogramCanvas" class="spectrogram-canvas"></canvas>
+                    </div>
+                    <div class="results-actions" style="margin-top:1.2rem;">
+                        <button id="specResetBtn" class="btn btn-secondary">Analyze Another File</button>
+                    </div>
+                </div>
+
+                <div id="specErrorSection" style="display:none;" class="error-section">
+                    <div class="error-box">
+                        <h3>&#10008; Error</h3>
+                        <p id="specErrorMessage"></p>
+                        <button id="specRetryBtn" class="btn btn-primary">Try Again</button>
+                    </div>
+                </div>
+
+            </div><!-- /spectrogramTab -->
 
             <!-- ══════════════════════════ STEMS TAB ═══════════════════════════ -->
             <div id="stemsTab" class="tab-content" style="display:none;">

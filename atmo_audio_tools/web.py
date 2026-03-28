@@ -859,6 +859,67 @@ def create_app():
             download_name=f"{job['filename']}-{stem}.wav",
         )
 
+    @app.route('/api/spectrogram', methods=['POST'])
+    def spectrogram():
+        """
+        Compute a mel spectrogram from an uploaded audio file.
+        Returns base64-encoded uint8 pixel matrix (bins × frames), row 0 = highest freq.
+        """
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+
+        file = request.files['audio']
+        if not file or not file.filename:
+            return jsonify({'error': 'No file selected'}), 400
+
+        safe_name = os.path.basename(file.filename)
+        ext = os.path.splitext(safe_name)[1].lower()
+        if ext not in _AUDIO_EXTENSIONS:
+            return jsonify({'error': 'Unsupported format. Use WAV, AIFF, FLAC, OGG, or MP3.'}), 400
+
+        try:
+            import librosa
+            import base64
+
+            file_data = file.read()
+            if len(file_data) > _AUDIO_MAX_BYTES:
+                return jsonify({'error': 'File too large. Maximum size is 100 MB'}), 400
+
+            # Load (mono, native SR, max 5 minutes)
+            y, sr = librosa.load(io.BytesIO(file_data), sr=None, mono=True, duration=300.0)
+
+            # Adaptive hop so we get ≤1400 time frames
+            n_mels    = 256
+            max_frames = 1400
+            hop_length = max(int(len(y) / max_frames), 256)
+            fmax       = min(sr // 2, 20000)
+
+            S    = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=n_mels,
+                                                   hop_length=hop_length, fmax=fmax)
+            S_db = librosa.power_to_db(S, ref=np.max)
+
+            # Normalise to 0-255 (dB range -80 to 0)
+            normed = np.clip((S_db + 80.0) / 80.0 * 255.0, 0, 255).astype(np.uint8)
+
+            # Flip rows so row 0 = highest frequency
+            normed = np.flipud(normed)
+
+            data_b64 = base64.b64encode(normed.tobytes()).decode('ascii')
+
+            return jsonify({
+                'frames':      int(normed.shape[1]),
+                'bins':        int(normed.shape[0]),
+                'data_b64':    data_b64,
+                'duration':    round(float(len(y) / sr), 2),
+                'sample_rate': int(sr),
+                'fmax':        int(fmax),
+                'filename':    safe_name,
+            }), 200
+
+        except Exception as exc:
+            app.logger.error("Spectrogram failed: %s", exc, exc_info=True)
+            return jsonify({'error': f'Spectrogram failed: {exc}'}), 400
+
     @app.route('/api/stems/download-zip/<job_id>')
     def stems_download_zip(job_id):
         """Download all stems as a single ZIP archive."""

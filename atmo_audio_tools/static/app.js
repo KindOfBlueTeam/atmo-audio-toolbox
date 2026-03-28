@@ -99,6 +99,22 @@ class MIDIAnalysisApp {
             sheetErrorSection: document.getElementById('sheetErrorSection'),
             sheetErrorMessage: document.getElementById('sheetErrorMessage'),
             sheetRetryBtn:     document.getElementById('sheetRetryBtn'),
+            // Spectrogram tab
+            specUploadBox:      document.getElementById('specUploadBox'),
+            specInput:          document.getElementById('specInput'),
+            specBrowseBtn:      document.getElementById('specBrowseBtn'),
+            specFileName:       document.getElementById('specFileName'),
+            specAnalyzeBtn:     document.getElementById('specAnalyzeBtn'),
+            spectrogramResult:  document.getElementById('spectrogramResult'),
+            spectrogramWrap:    document.getElementById('spectrogramWrap'),
+            spectrogramCanvas:  document.getElementById('spectrogramCanvas'),
+            specResFilename:    document.getElementById('specResFilename'),
+            specResDuration:    document.getElementById('specResDuration'),
+            specResSR:          document.getElementById('specResSR'),
+            specResetBtn:       document.getElementById('specResetBtn'),
+            specErrorSection:   document.getElementById('specErrorSection'),
+            specErrorMessage:   document.getElementById('specErrorMessage'),
+            specRetryBtn:       document.getElementById('specRetryBtn'),
             // Stems tab
             stemsUploadBox:    document.getElementById('stemsUploadBox'),
             stemsInput:        document.getElementById('stemsInput'),
@@ -377,6 +393,29 @@ class MIDIAnalysisApp {
         this.elements.stemsSplitBtn.addEventListener('click', () => this.submitStems());
         this.elements.stemsResetBtn.addEventListener('click', () => this.resetStems());
         this.elements.stemsRetryBtn.addEventListener('click', () => this.resetStems());
+
+        // Spectrogram tab
+        this.elements.specBrowseBtn.addEventListener('click', () => this.elements.specInput.click());
+        this.elements.specInput.addEventListener('change', (e) => this.handleSpecFileSelect(e.target.files[0]));
+        this.elements.specUploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault(); this.elements.specUploadBox.classList.add('dragover');
+        });
+        this.elements.specUploadBox.addEventListener('dragleave', () => {
+            this.elements.specUploadBox.classList.remove('dragover');
+        });
+        this.elements.specUploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.elements.specUploadBox.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) this.handleSpecFileSelect(e.dataTransfer.files[0]);
+        });
+        this.elements.specAnalyzeBtn.addEventListener('click', () => this.submitSpectrogram());
+        this.elements.specResetBtn.addEventListener('click', () => this.resetSpectrogram());
+        this.elements.specRetryBtn.addEventListener('click', () => this.resetSpectrogram());
+
+        // Re-render spectrogram on window resize
+        window.addEventListener('resize', () => {
+            if (this._lastSpectrogramData) this._renderSpectrogram(this._lastSpectrogramData);
+        });
     }
 
     handleFileSelect(file) {
@@ -941,12 +980,13 @@ class MIDIAnalysisApp {
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tab === tab);
         });
-        document.getElementById('midiTab').style.display     = tab === 'midi'     ? '' : 'none';
-        document.getElementById('audioTab').style.display    = tab === 'audio'    ? '' : 'none';
-        document.getElementById('masterTab').style.display   = tab === 'master'   ? '' : 'none';
-        document.getElementById('loudnessTab').style.display = tab === 'loudness' ? '' : 'none';
-        document.getElementById('sheetTab').style.display    = tab === 'sheet'    ? '' : 'none';
-        document.getElementById('stemsTab').style.display    = tab === 'stems'    ? '' : 'none';
+        document.getElementById('midiTab').style.display          = tab === 'midi'        ? '' : 'none';
+        document.getElementById('audioTab').style.display         = tab === 'audio'       ? '' : 'none';
+        document.getElementById('masterTab').style.display        = tab === 'master'      ? '' : 'none';
+        document.getElementById('loudnessTab').style.display      = tab === 'loudness'    ? '' : 'none';
+        document.getElementById('sheetTab').style.display         = tab === 'sheet'       ? '' : 'none';
+        document.getElementById('stemsTab').style.display         = tab === 'stems'       ? '' : 'none';
+        document.getElementById('spectrogramTab').style.display   = tab === 'spectrogram' ? '' : 'none';
     }
 
     // ── Audio file handling ───────────────────────────────────────────────────
@@ -1393,6 +1433,223 @@ class MIDIAnalysisApp {
         this.hideGlobalLoading();
         this.elements.masterLogStream.style.display = 'none';
         this.elements.stemsSplitBtn.disabled = false;
+    }
+
+    // ── Spectrogram ───────────────────────────────────────────────────────────
+
+    handleSpecFileSelect(file) {
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['wav', 'aif', 'aiff', 'flac', 'ogg', 'mp3'].includes(ext)) {
+            this.showSpecError('Unsupported format. Use WAV, AIFF, FLAC, OGG, or MP3.');
+            return;
+        }
+        this.specFile = file;
+        this.elements.specFileName.textContent   = `${file.name} (${this.formatFileSize(file.size)})`;
+        this.elements.specFileName.style.display = 'block';
+        this.elements.specAnalyzeBtn.style.display = 'inline-block';
+        this.elements.spectrogramResult.style.display = 'none';
+        this.hideSpecError();
+    }
+
+    async submitSpectrogram() {
+        if (!this.specFile) return;
+        this.elements.specAnalyzeBtn.disabled = true;
+        this.showGlobalLoading('Analyzing spectrum…');
+        this.hideSpecError();
+
+        const fd = new FormData();
+        fd.append('audio', this.specFile);
+
+        try {
+            const resp = await fetch('/api/spectrogram', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Spectrogram failed');
+
+            this._lastSpectrogramData = data;
+            this.elements.specResFilename.textContent = data.filename;
+            this.elements.specResDuration.textContent = this.formatDuration(data.duration);
+            this.elements.specResSR.textContent       = `${data.sample_rate.toLocaleString()} Hz`;
+            this.elements.spectrogramResult.style.display = 'block';
+            this._renderSpectrogram(data);
+        } catch (err) {
+            this.showSpecError(err.message);
+        } finally {
+            this.elements.specAnalyzeBtn.disabled = false;
+            this.hideGlobalLoading();
+        }
+    }
+
+    _renderSpectrogram(result) {
+        const canvas = this.elements.spectrogramCanvas;
+        const ctx    = canvas.getContext('2d');
+        const { frames, bins, data_b64, duration, fmax } = result;
+
+        // Decode base64 → Uint8Array (bins × frames, row 0 = highest freq)
+        const bstr = atob(data_b64);
+        const src  = new Uint8Array(bstr.length);
+        for (let i = 0; i < bstr.length; i++) src[i] = bstr.charCodeAt(i);
+
+        // Color LUT: near-black → deep navy → site blue → cyan → near-white
+        const colorStops = [
+            [0,   2,   4,  10],
+            [45,  0,  14,  55],
+            [100, 0,  55, 155],
+            [160, 0, 100, 220],
+            [210, 0, 185, 255],
+            [255, 220, 242, 255],
+        ];
+        const lut = new Uint8ClampedArray(256 * 3);
+        for (let v = 0; v < 256; v++) {
+            let r = 0, g = 0, b = 0;
+            for (let i = 0; i < colorStops.length - 1; i++) {
+                const [s0, r0, g0, b0] = colorStops[i];
+                const [s1, r1, g1, b1] = colorStops[i + 1];
+                if (v >= s0 && v <= s1) {
+                    const t = (v - s0) / (s1 - s0);
+                    r = r0 + t * (r1 - r0);
+                    g = g0 + t * (g1 - g0);
+                    b = b0 + t * (b1 - b0);
+                    break;
+                }
+            }
+            lut[v * 3]     = Math.round(r);
+            lut[v * 3 + 1] = Math.round(g);
+            lut[v * 3 + 2] = Math.round(b);
+        }
+
+        // Layout constants
+        const W       = this.elements.spectrogramWrap.offsetWidth || 800;
+        const H       = 340;
+        const PAD_L   = 52;
+        const PAD_R   = 70;
+        const PAD_T   = 10;
+        const PAD_B   = 34;
+        const specW   = W - PAD_L - PAD_R;
+        const specH   = H - PAD_T - PAD_B;
+
+        canvas.width  = W;
+        canvas.height = H;
+
+        // Background
+        ctx.fillStyle = '#020508';
+        ctx.fillRect(0, 0, W, H);
+
+        // Render spectrogram pixels into ImageData
+        const imgData = ctx.createImageData(specW, specH);
+        const d       = imgData.data;
+        for (let cy = 0; cy < specH; cy++) {
+            const row = Math.min(Math.floor(cy / specH * bins), bins - 1);
+            for (let cx = 0; cx < specW; cx++) {
+                const col = Math.min(Math.floor(cx / specW * frames), frames - 1);
+                const v   = src[row * frames + col];
+                const pi  = (cy * specW + cx) * 4;
+                d[pi]     = lut[v * 3];
+                d[pi + 1] = lut[v * 3 + 1];
+                d[pi + 2] = lut[v * 3 + 2];
+                d[pi + 3] = 255;
+            }
+        }
+        ctx.putImageData(imgData, PAD_L, PAD_T);
+
+        // Helper: mel freq → canvas Y (high freq at top)
+        const melMax  = 2595 * Math.log10(1 + fmax / 700);
+        const hzToY   = hz => {
+            const mel  = 2595 * Math.log10(1 + hz / 700);
+            const frac = Math.min(mel / melMax, 1);
+            return PAD_T + (1 - frac) * specH;
+        };
+
+        // Grid + frequency axis
+        ctx.font      = '10px "Josefin Slab", Georgia, serif';
+        ctx.textAlign = 'right';
+        const hzTicks = [100, 250, 500, 1000, 2000, 4000, 8000, 16000].filter(hz => hz < fmax * 0.98);
+        hzTicks.forEach(hz => {
+            const y     = hzToY(hz);
+            const label = hz >= 1000 ? (hz / 1000) + 'k' : String(hz);
+            ctx.fillStyle   = 'rgba(140, 190, 240, 0.70)';
+            ctx.fillText(label, PAD_L - 5, y + 3.5);
+            ctx.strokeStyle = 'rgba(0, 80, 200, 0.15)';
+            ctx.lineWidth   = 1;
+            ctx.beginPath();
+            ctx.moveTo(PAD_L, y);
+            ctx.lineTo(PAD_L + specW, y);
+            ctx.stroke();
+        });
+
+        // Y-axis rotated label
+        ctx.save();
+        ctx.translate(11, PAD_T + specH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign   = 'center';
+        ctx.fillStyle   = 'rgba(80, 140, 210, 0.50)';
+        ctx.font        = '9px "Josefin Slab", Georgia, serif';
+        ctx.letterSpacing = '0.14em';
+        ctx.fillText('FREQUENCY  Hz', 0, 0);
+        ctx.restore();
+
+        // Time axis
+        ctx.textAlign = 'center';
+        const interval = duration <= 30 ? 5 : duration <= 90 ? 10 : duration <= 180 ? 15 : duration <= 360 ? 30 : 60;
+        for (let t = 0; t <= duration; t += interval) {
+            const cx    = PAD_L + (t / duration) * specW;
+            const mins  = Math.floor(t / 60);
+            const secs  = t % 60;
+            const label = mins > 0 ? `${mins}:${String(secs).padStart(2, '0')}` : `${t}s`;
+            ctx.fillStyle   = 'rgba(140, 190, 240, 0.70)';
+            ctx.font        = '10px "Josefin Slab", Georgia, serif';
+            ctx.fillText(label, cx, H - 10);
+            ctx.strokeStyle = 'rgba(0, 80, 200, 0.15)';
+            ctx.lineWidth   = 1;
+            ctx.beginPath();
+            ctx.moveTo(cx, PAD_T);
+            ctx.lineTo(cx, PAD_T + specH);
+            ctx.stroke();
+        }
+
+        // Color scale bar
+        const barX = W - PAD_R + 10;
+        const barW = 14;
+        const grad = ctx.createLinearGradient(0, PAD_T, 0, PAD_T + specH);
+        grad.addColorStop(0,    `rgb(${lut[255*3]},${lut[255*3+1]},${lut[255*3+2]})`);
+        grad.addColorStop(0.22, `rgb(${lut[210*3]},${lut[210*3+1]},${lut[210*3+2]})`);
+        grad.addColorStop(0.50, `rgb(${lut[128*3]},${lut[128*3+1]},${lut[128*3+2]})`);
+        grad.addColorStop(0.78, `rgb(${lut[55*3]}, ${lut[55*3+1]}, ${lut[55*3+2]})`);
+        grad.addColorStop(1,    `rgb(${lut[0*3]},  ${lut[0*3+1]},  ${lut[0*3+2]})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(barX, PAD_T, barW, specH);
+        ctx.strokeStyle = 'rgba(0, 100, 200, 0.25)';
+        ctx.lineWidth   = 1;
+        ctx.strokeRect(barX, PAD_T, barW, specH);
+
+        // dB labels on scale
+        ctx.textAlign = 'left';
+        ctx.font      = '9px "Josefin Slab", Georgia, serif';
+        ctx.fillStyle = 'rgba(140, 190, 240, 0.70)';
+        [0, -20, -40, -60, -80].forEach(db => {
+            const frac = (db + 80) / 80;
+            const y    = PAD_T + (1 - frac) * specH;
+            ctx.fillText(`${db}dB`, barX + barW + 4, y + 3.5);
+        });
+    }
+
+    resetSpectrogram() {
+        this.specFile = null;
+        this._lastSpectrogramData = null;
+        this.elements.specInput.value                  = '';
+        this.elements.specFileName.style.display       = 'none';
+        this.elements.specAnalyzeBtn.style.display     = 'none';
+        this.elements.spectrogramResult.style.display  = 'none';
+        this.hideSpecError();
+    }
+
+    showSpecError(msg) {
+        this.elements.specErrorMessage.textContent   = msg;
+        this.elements.specErrorSection.style.display = 'block';
+    }
+
+    hideSpecError() {
+        this.elements.specErrorSection.style.display = 'none';
     }
 
     resetStems() {
