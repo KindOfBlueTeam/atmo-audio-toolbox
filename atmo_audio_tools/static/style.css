@@ -25,6 +25,12 @@
     --error:         #ef4444;
     --border:        rgba(200, 150, 12, 0.10);
     --sidebar-width: 220px;
+    /* Tungsten / incandescent CTA */
+    --tungsten:      #c06818;
+    --tungsten-hot:  #ff9a30;
+    --tungsten-dim:  #3d1800;
+    --tungsten-glow: rgba(255, 148, 40, 0.55);
+    --tungsten-text: #fff5dc;
 }
 
 html, body { height: 100%; }
@@ -291,15 +297,43 @@ body::before {
     box-shadow: 0 0 16px rgba(0, 153, 255, 0.25); color: #fff;
 }
 
+/* ── Tungsten CTA — shared by all primary action buttons ────────── */
+.btn-cta,
 .btn-analyze {
-    background: linear-gradient(135deg, rgba(0, 80, 160, 0.6), rgba(160, 100, 8, 0.6));
-    color: var(--gold-soft); border-color: var(--gold);
-    padding: 0.75rem 3rem; font-size: 0.82rem;
+    background: var(--tungsten);
+    color: var(--tungsten-text);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    border-top:    2px solid rgba(255, 200, 120, 0.35);
+    border-bottom: 2px solid rgba(0, 0, 0, 0.50);
+    border-left:   1px solid rgba(160, 80, 10, 0.55);
+    border-right:  1px solid rgba(160, 80, 10, 0.55);
+    border-radius: 3px;
+    text-shadow: 0 0 10px rgba(255, 180, 80, 0.8);
+    box-shadow:
+        0 0 18px var(--tungsten-glow),
+        0 0 40px rgba(255, 148, 40, 0.20),
+        inset 0 1px 0 rgba(255, 200, 120, 0.20),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.30);
+    padding: 0.75rem 3rem;
+    font-size: 0.82rem;
 }
+.btn-cta:hover,
 .btn-analyze:hover {
-    background: linear-gradient(135deg, rgba(0, 100, 200, 0.8), rgba(190, 130, 12, 0.8));
-    box-shadow: 0 0 24px var(--gold-glow), 0 0 12px var(--blue-glow);
+    background: var(--tungsten-hot);
     color: #fff;
+    text-shadow: 0 0 14px rgba(255, 220, 130, 1);
+    box-shadow:
+        0 0 32px rgba(255, 160, 50, 0.85),
+        0 0 70px rgba(255, 148, 40, 0.35),
+        inset 0 1px 0 rgba(255, 220, 140, 0.30);
+}
+.btn-cta:active,
+.btn-analyze:active {
+    transform: translateY(1px);
+    box-shadow:
+        0 0 10px var(--tungsten-glow),
+        inset 0 2px 5px rgba(0, 0, 0, 0.45);
 }
 
 .btn-secondary {
@@ -768,23 +802,23 @@ body::before {
     display: block;
 }
 
-/* Master CTA button — studio console LED, bright red with slow flash */
+/* Master CTA button — studio console LED, tungsten/incandescent with slow flash */
 .btn-master-cta {
-    background: #cc0000;
-    color: #fff;
+    background: var(--tungsten);
+    color: var(--tungsten-text);
     font-weight: 800;
     font-size: 1rem;
     letter-spacing: 0.18em;
-    border-top: 2px solid rgba(255, 120, 120, 0.45);
+    border-top:    2px solid rgba(255, 200, 120, 0.35);
     border-bottom: 2px solid rgba(0, 0, 0, 0.55);
-    border-left: 1px solid rgba(180, 0, 0, 0.6);
-    border-right: 1px solid rgba(180, 0, 0, 0.6);
+    border-left:   1px solid rgba(160, 80, 10, 0.55);
+    border-right:  1px solid rgba(160, 80, 10, 0.55);
     border-radius: 3px;
-    text-shadow: 0 0 10px rgba(255, 80, 80, 0.9);
+    text-shadow: 0 0 10px rgba(255, 180, 80, 0.8);
     box-shadow:
-        0 0 22px rgba(255, 0, 0, 0.65),
-        0 0 50px rgba(255, 0, 0, 0.25),
-        inset 0 1px 0 rgba(255, 140, 140, 0.25),
+        0 0 22px var(--tungsten-glow),
+        0 0 50px rgba(255, 148, 40, 0.20),
+        inset 0 1px 0 rgba(255, 200, 120, 0.20),
         inset 0 -1px 0 rgba(0, 0, 0, 0.35);
 }
 
@@ -794,36 +828,36 @@ body::before {
 
 .btn-master-cta:hover {
     animation: none;
-    background: #ff1a1a;
+    background: var(--tungsten-hot);
     box-shadow:
-        0 0 35px rgba(255, 0, 0, 0.9),
-        0 0 70px rgba(255, 0, 0, 0.45),
-        inset 0 1px 0 rgba(255, 160, 160, 0.35);
+        0 0 35px rgba(255, 148, 40, 0.9),
+        0 0 70px rgba(255, 148, 40, 0.45),
+        inset 0 1px 0 rgba(255, 220, 140, 0.35);
 }
 
 .btn-master-cta:active {
     transform: translateY(1px);
     box-shadow:
-        0 0 14px rgba(255, 0, 0, 0.5),
+        0 0 14px rgba(255, 148, 40, 0.5),
         inset 0 2px 5px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes master-led-flash {
     0%, 100% {
-        background: #cc0000;
+        background: var(--tungsten);
         box-shadow:
-            0 0 22px rgba(255, 0, 0, 0.65),
-            0 0 50px rgba(255, 0, 0, 0.25),
-            inset 0 1px 0 rgba(255, 140, 140, 0.25);
-        color: #fff;
-        text-shadow: 0 0 10px rgba(255, 80, 80, 0.9);
+            0 0 22px var(--tungsten-glow),
+            0 0 50px rgba(255, 148, 40, 0.20),
+            inset 0 1px 0 rgba(255, 200, 120, 0.20);
+        color: var(--tungsten-text);
+        text-shadow: 0 0 10px rgba(255, 180, 80, 0.8);
     }
     50% {
-        background: #4a0000;
+        background: var(--tungsten-dim);
         box-shadow:
-            0 0 5px rgba(255, 0, 0, 0.15),
+            0 0 5px rgba(255, 148, 40, 0.15),
             inset 0 2px 4px rgba(0, 0, 0, 0.5);
-        color: rgba(255, 160, 160, 0.6);
+        color: rgba(255, 200, 120, 0.5);
         text-shadow: none;
     }
 }
