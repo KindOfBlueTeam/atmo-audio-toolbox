@@ -1864,8 +1864,6 @@ class MIDIAnalysisApp {
             this._set('aResConfidence',       ton.key_confidence != null ? `${ton.key_confidence}%` : 'N/A');
             this._set('aResTonicMargin',      ton.tonic_margin != null ? ton.tonic_margin.toFixed(3) : 'N/A');
             this._set('aResRelativeKey',      ton.relative_key_candidate || 'N/A');
-            this._renderNoteLineChart('pitchHist', ton.pitch_class_histogram || {});
-            document.getElementById('pitchHistContainer').style.display = 'block';
             this._renderCandidateTonics('candidateTonicsContainer', ton.candidate_tonics || {});
         }
 
@@ -1925,13 +1923,6 @@ class MIDIAnalysisApp {
         const freq = r.frequency || {};
         if (!freq.error) {
             this._set('aResCentroid', freq.spectral_centroid_hz != null ? `${freq.spectral_centroid_hz.toLocaleString()} Hz` : 'N/A');
-            this._renderBandChart('freqBands', {
-                'Sub (20–60 Hz)':   freq.sub_20_60_pct,
-                'Low (60–250 Hz)':  freq.low_60_250_pct,
-                'Mid (250–2k Hz)':  freq.mid_250_2k_pct,
-                'High (2k–10k Hz)': freq.high_2k_10k_pct,
-                'Air (10k+ Hz)':    freq.air_10k_plus_pct,
-            }, '%');
         }
 
         // Stereo
@@ -1985,8 +1976,6 @@ class MIDIAnalysisApp {
             this._set('aResRootBass',  bass.root_bass_pct    != null ? `${bass.root_bass_pct}%`     : 'N/A');
             this._set('aResNonRoot',   bass.non_root_bass_pct != null ? `${bass.non_root_bass_pct}%` : 'N/A');
             this._set('aResSub',       bass.sub_consistency  || 'N/A');
-            this._renderNoteLineChart('bassHist', bass.bass_note_distribution || {});
-            document.getElementById('bassHistContainer').style.display = 'block';
         }
 
         // Structure

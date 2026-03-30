@@ -10,7 +10,7 @@
     --gold:          #c8960c;
     --gold-bright:   #f0c040;
     --gold-soft:     #e8d090;
-    --gold-dim:      #7a5a10;
+    --gold-dim:      #c8960c;
     --gold-glow:     rgba(200, 150, 12, 0.22);
     --blue-glow:     rgba(0, 153, 255, 0.16);
     --bg:            #06090f;
@@ -20,7 +20,7 @@
     --card-border-h: rgba(200, 150, 12, 0.42);
     --text-1:        #f0e8d0;
     --text-2:        #9a8860;
-    --text-3:        #4a3e28;
+    --text-3:        #8a7a58;
     --success:       #10b981;
     --error:         #ef4444;
     --border:        rgba(200, 150, 12, 0.10);
