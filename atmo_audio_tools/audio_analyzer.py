@@ -668,7 +668,7 @@ def _compute_harmonic_root_scores(
 _TARGET_SR   = 22050   # normalise all audio to this sample rate at load time
 _MAX_SECONDS = 600     # truncate files longer than 10 minutes before analysis
 
-def _load_audio(file_bytes: bytes, filename: str = '') -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
+def _load_audio(file_bytes: bytes, filename: str = '') -> tuple[np.ndarray, np.ndarray, np.ndarray, int, int]:
     """
     Load audio from raw bytes.
     Returns (y_left, y_right, y_mono, sr) — all float32, shape (N,).
@@ -680,6 +680,7 @@ def _load_audio(file_bytes: bytes, filename: str = '') -> tuple[np.ndarray, np.n
     buf = io.BytesIO(file_bytes)
     try:
         data, sr = sf.read(buf, always_2d=True, dtype='float32')
+        native_sr = int(sr)
         y_mono  = librosa.to_mono(data.T)
         y_left  = data[:, 0]
         y_right = data[:, 1] if data.shape[1] >= 2 else data[:, 0]
@@ -691,7 +692,8 @@ def _load_audio(file_bytes: bytes, filename: str = '') -> tuple[np.ndarray, np.n
             tmp.write(file_bytes)
             tmp_path = tmp.name
         try:
-            y_lr, sr = librosa.load(tmp_path, sr=_TARGET_SR, mono=False)
+            native_sr = librosa.get_samplerate(tmp_path)
+            y_lr, sr  = librosa.load(tmp_path, sr=_TARGET_SR, mono=False)
         finally:
             os.unlink(tmp_path)
 
@@ -701,7 +703,7 @@ def _load_audio(file_bytes: bytes, filename: str = '') -> tuple[np.ndarray, np.n
             y_left  = np.asarray(y_lr[0], dtype=np.float32)
             y_right = np.asarray(y_lr[1], dtype=np.float32)
             y_mono  = librosa.to_mono(y_lr)
-        return y_left, y_right, y_mono, int(sr)
+        return y_left, y_right, y_mono, int(sr), native_sr
 
     # Resample to target SR if needed (halves compute for 44100 Hz files).
     sr = int(sr)
@@ -718,20 +720,20 @@ def _load_audio(file_bytes: bytes, filename: str = '') -> tuple[np.ndarray, np.n
         y_left  = y_left[:max_samples]
         y_right = y_right[:max_samples]
 
-    return y_left, y_right, y_mono, sr
+    return y_left, y_right, y_mono, sr, native_sr
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
 
 def analyze_audio(file_bytes: bytes, filename: str) -> dict:
     """Load audio once, dispatch to all sub-analyzers, return JSON-ready dict."""
-    y_left, y_right, y_mono, sr = _load_audio(file_bytes, filename)
+    y_left, y_right, y_mono, sr, native_sr = _load_audio(file_bytes, filename)
 
     is_mono = bool(np.allclose(y_left, y_right, atol=1e-6))
     result: dict = {
         'file':             filename,
         'duration_seconds': round(len(y_mono) / sr, 2),
-        'sample_rate':      sr,
+        'sample_rate':      native_sr,   # original file SR, not the resampled working copy
         'channels':         1 if is_mono else 2,
     }
 
@@ -765,6 +767,13 @@ def analyze_audio(file_bytes: bytes, filename: str) -> dict:
     _run('bass',      _analyze_bass,            y_mono, sr, tonic_pc)
     _run('structure', _analyze_structure,       y_mono, sr)
     _run('optional',  _analyze_optional,        y_mono, sr)
+
+    # Bass movement timeline (best-effort; empty list on failure)
+    try:
+        result['bass_timeline'] = _detect_bass_timeline(y_mono, sr, result['duration_seconds'])
+    except Exception as exc:
+        result['bass_timeline'] = []
+        result['bass_timeline_error'] = str(exc)
 
     # ── Interpretive labels (require both harmonic and bass results) ──────────
     _harm = result.get('harmonic', {})
@@ -2306,38 +2315,19 @@ def _detect_sections(y: np.ndarray, sr: int, rms_norm: np.ndarray,
             '_e':         avg_e,
         })
 
-    # ── 6. Label by position + relative energy ───────────────────────────
-    n_sec    = len(sections)
-    energies = [s['_e'] for s in sections]
-    e_min, e_max = min(energies), max(energies)
-    e_range  = e_max - e_min or 1.0
-
-    # If the absolute energy spread across sections is small (< 15 points on
-    # the 0–100 scale) the track has uniform dynamics — jazz, classical,
-    # ambient, etc.  Forcing energy-based labels in this case produces
-    # nonsense (every section becomes "Drop" or "Chorus").  Use neutral
-    # positional labels instead.
-    low_variance  = (e_max - e_min) < 15
-    part_letters  = 'ABCDEFG'
-    mid_idx       = 0
+    # ── 6. Label by position only ─────────────────────────────────────────
+    _ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X']
+    n_sec   = len(sections)
+    mid_idx = 0
 
     for i, s in enumerate(sections):
-        norm_e = (s['_e'] - e_min) / e_range   # 0 = quietest, 1 = loudest
         if i == 0:
             label = 'Intro'
         elif i == n_sec - 1:
             label = 'Outro'
-        elif low_variance:
-            label = f"Part {part_letters[mid_idx % len(part_letters)]}"
-            mid_idx += 1
-        elif norm_e >= 0.75:
-            label = 'Chorus'
-        elif norm_e >= 0.50:
-            label = 'Bridge'
-        elif norm_e <= 0.30:
-            label = 'Verse'
         else:
-            label = 'Build'
+            label = f"Section {_ROMAN[mid_idx % len(_ROMAN)]}"
+            mid_idx += 1
         s['label'] = label
         del s['_e']
 
@@ -2369,12 +2359,90 @@ def _analyze_structure(y: np.ndarray, sr: int) -> dict:
     step  = max(1, n // 80)
     curve = [round(float(v), 1) for v in rms_norm[::step]]
 
+    # Clipping map: one bool per energy-curve bar.
+    # A bar is marked clipped if ANY sample in that time window hits the clip threshold.
+    clip_thresh  = 0.999   # just below 0 dBFS; captures both hard and near-clipping
+    n_bars       = len(curve)
+    clipping_map = []
+    for bar_i in range(n_bars):
+        s_start = bar_i * step * hop
+        s_end   = min(len(y), (bar_i + 1) * step * hop)
+        clipping_map.append(bool(np.any(np.abs(y[s_start:s_end]) >= clip_thresh)))
+    clipping_detected = any(clipping_map)
+
     return {
         'energy_curve':           curve,
+        'clipping_map':           clipping_map,
+        'clipping_detected':      clipping_detected,
         'peak_energy_time_sec':   peak_time,
         'sections':               sections,
         'density_onsets_per_sec': density,
     }
+
+
+def _detect_bass_timeline(y: np.ndarray, sr: int, duration: float) -> list[dict]:
+    """Detect bass note movement over time using probabilistic YIN (pyin).
+
+    Returns a list of merged segments: [{start, end, note, note_class}].
+    Consecutive windows with the same note are merged into one segment.
+    Windows with no confident voiced pitch are represented as note=None.
+    """
+    hop_length = 512               # librosa default — stable across versions
+    bucket_sec = 1.0               # aggregate frames into 1-second buckets
+
+    fmin = float(librosa.note_to_hz('C1'))   # ~32.7 Hz  (sub-bass floor)
+    fmax = float(librosa.note_to_hz('B3'))   # ~246.9 Hz (top of bass range)
+
+    try:
+        f0, voiced_flag, voiced_probs = librosa.pyin(
+            y,
+            fmin=fmin,
+            fmax=fmax,
+            sr=sr,
+            hop_length=hop_length,
+        )
+    except Exception as exc:
+        raise RuntimeError(f'pyin failed: {exc}') from exc
+
+    frame_times = librosa.frames_to_time(np.arange(len(f0)), sr=sr, hop_length=hop_length)
+    n_buckets   = int(np.ceil(duration / bucket_sec))
+
+    raw: list[dict] = []
+    for i in range(n_buckets):
+        t_start = i * bucket_sec
+        t_end   = min(t_start + bucket_sec, duration)
+
+        mask          = (frame_times >= t_start) & (frame_times < t_end)
+        window_f0     = f0[mask]
+        window_voiced = voiced_flag[mask]
+        window_probs  = voiced_probs[mask]
+
+        confident = window_voiced & (window_probs > 0.25)
+        voiced_f0 = window_f0[confident]
+
+        if len(voiced_f0) == 0 or np.all(np.isnan(voiced_f0)):
+            note = None
+            note_class = None
+            midi_int = None
+        else:
+            median_f0  = float(np.nanmedian(voiced_f0))
+            midi_note  = librosa.hz_to_midi(median_f0)
+            midi_int   = int(round(midi_note))
+            note_class = midi_int % 12
+            note       = NOTE_NAMES[note_class]
+
+        raw.append({'start': round(t_start, 2), 'end': round(t_end, 2),
+                    'note': note, 'note_class': note_class, 'midi': midi_int})
+
+    # Merge consecutive segments that share the same note
+    merged: list[dict] = []
+    for seg in raw:
+        if merged and merged[-1]['note'] == seg['note']:
+            merged[-1]['end'] = seg['end']
+        else:
+            merged.append(dict(seg))
+
+    return merged
 
 
 def _analyze_optional(y: np.ndarray, sr: int) -> dict:

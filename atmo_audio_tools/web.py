@@ -18,7 +18,7 @@ import pyloudnorm as pyln
 from flask import Flask, render_template, request, jsonify, send_file
 
 from .analyzer import MIDIAnalyzer
-from .audio_analyzer import analyze_audio
+from .audio_analyzer import analyze_audio, _load_audio, _analyze_loudness, _analyze_structure
 
 _AUDIO_EXTENSIONS = {'.wav', '.aif', '.aiff', '.flac', '.ogg', '.mp3'}
 _AUDIO_MAX_BYTES  = 100 * 1024 * 1024  # 100 MB per file
@@ -676,6 +676,34 @@ def create_app():
             download_name=download_name,
         )
 
+    @app.route('/api/analyze-loudness', methods=['POST'])
+    def analyze_loudness_route():
+        """Analyze loudness and energy characteristics of an audio file."""
+        f = request.files.get('audio')
+        if not f:
+            return jsonify({'error': 'No audio file provided'}), 400
+        data = f.read()
+        if len(data) > _AUDIO_MAX_BYTES:
+            return jsonify({'error': 'File too large (max 100 MB)'}), 400
+
+        filename = f.filename or 'audio'
+        try:
+            y_left, y_right, y_mono, sr, native_sr = _load_audio(data, filename)
+            duration = round(len(y_mono) / sr, 2)
+            is_mono  = bool(np.allclose(y_left, y_right, atol=1e-6))
+            loud     = _analyze_loudness(y_left, y_right, y_mono, sr)
+            struct   = _analyze_structure(y_mono, sr)
+            return jsonify({
+                'file':             filename,
+                'duration_seconds': duration,
+                'sample_rate':      native_sr,
+                'channels':         1 if is_mono else 2,
+                'loudness':         loud,
+                'structure':        struct,
+            })
+        except Exception as exc:
+            return jsonify({'error': str(exc)}), 500
+
     @app.route('/api/loudness', methods=['POST'])
     def loudness_normalize():
         """
@@ -760,6 +788,60 @@ def create_app():
         except Exception as exc:
             app.logger.error("Loudness normalization failed: %s", exc, exc_info=True)
             return jsonify({'error': 'Normalization failed. Please try again.'}), 400
+
+    @app.route('/api/declip', methods=['POST'])
+    def declip():
+        """
+        Scale a clipping audio file so its peak sits at -0.5 dBFS.
+        Accepts the same formats as the loudness normalizer.
+        """
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+
+        file     = request.files['audio']
+        safe_name = os.path.basename(file.filename or '')
+        ext      = os.path.splitext(safe_name)[1].lower()
+        if ext not in {'.wav', '.aif', '.aiff', '.flac'}:
+            return jsonify({'error': f'Unsupported format "{ext}". Use WAV, AIFF, or FLAC.'}), 400
+
+        try:
+            file_data = file.read()
+            if len(file_data) > _AUDIO_MAX_BYTES:
+                return jsonify({'error': 'File too large. Maximum size is 100 MB'}), 400
+
+            data, rate  = sf.read(io.BytesIO(file_data), always_2d=True)
+            peak_linear = float(np.max(np.abs(data)))
+
+            if peak_linear < 0.999:
+                return jsonify({'error': 'No clipping detected — peak is already below clipping threshold.'}), 400
+
+            # Scale to -0.5 dBFS to give a small safety margin
+            target_peak = 10 ** (-0.5 / 20)   # ≈ 0.944
+            fixed       = data * (target_peak / peak_linear)
+
+            before_peak_db = round(20 * np.log10(peak_linear), 1)
+            after_peak_db  = round(20 * np.log10(target_peak), 1)
+
+            stem          = os.path.splitext(safe_name)[0]
+            download_name = f'{stem}-declipped.wav'
+            tmpdir        = tempfile.mkdtemp()
+            out_path      = os.path.join(tmpdir, download_name)
+            sf.write(out_path, fixed, rate, subtype='PCM_24')
+
+            job_id = str(uuid.uuid4())
+            _LOUDNESS_JOBS[job_id] = {'tmpdir': tmpdir, 'download_name': download_name}
+            Timer(_MASTER_JOB_TTL, _cleanup_loudness_job, args=[job_id]).start()
+
+            return jsonify({
+                'job_id':        job_id,
+                'before_peak':   before_peak_db,
+                'after_peak':    after_peak_db,
+                'download_name': download_name,
+            }), 200
+
+        except Exception as exc:
+            app.logger.error('Declip failed: %s', exc, exc_info=True)
+            return jsonify({'error': 'Processing failed. Please try again.'}), 400
 
     @app.route('/api/loudness/download/<job_id>')
     def loudness_download(job_id):

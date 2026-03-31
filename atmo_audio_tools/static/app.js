@@ -44,7 +44,6 @@ class MIDIAnalysisApp {
             humanizeTimingModal: document.getElementById('humanizeTimingModal'),
             cancelHumanizeTimingBtn: document.getElementById('cancelHumanizeTimingBtn'),
             // Audio tab
-            audioPreview:         document.getElementById('audioPreview'),
             audioUploadBox:       document.getElementById('audioUploadBox'),
             audioInput:           document.getElementById('audioInput'),
             audioBrowseBtn:       document.getElementById('audioBrowseBtn'),
@@ -74,24 +73,25 @@ class MIDIAnalysisApp {
             masterErrorMessage:     document.getElementById('masterErrorMessage'),
             masterRetryBtn:         document.getElementById('masterRetryBtn'),
             // Loudness tab
-            loudnessPreview:         document.getElementById('loudnessPreview'),
-            loudnessUploadBox:       document.getElementById('loudnessUploadBox'),
-            loudnessInput:           document.getElementById('loudnessInput'),
-            loudnessBrowseBtn:       document.getElementById('loudnessBrowseBtn'),
-            loudnessFileName:        document.getElementById('loudnessFileName'),
-            loudnessPlatformSection: document.getElementById('loudnessPlatformSection'),
-            loudnessPlatform:        document.getElementById('loudnessPlatform'),
-            loudnessNormalizeBtn:    document.getElementById('loudnessNormalizeBtn'),
-            loudnessResult:          document.getElementById('loudnessResult'),
-            loudnessResultMsg:       document.getElementById('loudnessResultMsg'),
-            loudnessDownloadLink:    document.getElementById('loudnessDownloadLink'),
-            loudnessResetBtn:        document.getElementById('loudnessResetBtn'),
-            loudnessErrorSection:    document.getElementById('loudnessErrorSection'),
-            loudnessErrorMessage:    document.getElementById('loudnessErrorMessage'),
-            loudnessRetryBtn:        document.getElementById('loudnessRetryBtn'),
-            loudnessClampedMsg:      document.getElementById('loudnessClampedMsg'),
+            loudnessUploadBox:        document.getElementById('loudnessUploadBox'),
+            loudnessInput:            document.getElementById('loudnessInput'),
+            loudnessBrowseBtn:        document.getElementById('loudnessBrowseBtn'),
+            loudnessFileName:         document.getElementById('loudnessFileName'),
+            loudnessAnalyzeBtn:       document.getElementById('loudnessAnalyzeBtn'),
+            loudnessChooseAnotherLink:document.getElementById('loudnessChooseAnotherLink'),
+            loudnessAnalysisSection:  document.getElementById('loudnessAnalysisSection'),
+            loudnessPlatformSection:  document.getElementById('loudnessPlatformSection'),
+            loudnessPlatform:         document.getElementById('loudnessPlatform'),
+            loudnessNormalizeBtn:     document.getElementById('loudnessNormalizeBtn'),
+            loudnessResult:           document.getElementById('loudnessResult'),
+            loudnessResultMsg:        document.getElementById('loudnessResultMsg'),
+            loudnessDownloadLink:     document.getElementById('loudnessDownloadLink'),
+            loudnessResetBtn:         document.getElementById('loudnessResetBtn'),
+            loudnessErrorSection:     document.getElementById('loudnessErrorSection'),
+            loudnessErrorMessage:     document.getElementById('loudnessErrorMessage'),
+            loudnessRetryBtn:         document.getElementById('loudnessRetryBtn'),
+            loudnessClampedMsg:       document.getElementById('loudnessClampedMsg'),
             // Sheet tab
-            sheetPreview:      document.getElementById('sheetPreview'),
             sheetUploadBox:    document.getElementById('sheetUploadBox'),
             sheetInput:        document.getElementById('sheetInput'),
             sheetBrowseBtn:    document.getElementById('sheetBrowseBtn'),
@@ -107,7 +107,6 @@ class MIDIAnalysisApp {
             sheetErrorMessage: document.getElementById('sheetErrorMessage'),
             sheetRetryBtn:     document.getElementById('sheetRetryBtn'),
             // Spectrogram tab
-            spectrogramPreview: document.getElementById('spectrogramPreview'),
             specUploadBox:      document.getElementById('specUploadBox'),
             specInput:          document.getElementById('specInput'),
             specBrowseBtn:      document.getElementById('specBrowseBtn'),
@@ -360,12 +359,8 @@ class MIDIAnalysisApp {
         this.elements.masterRetryBtn.addEventListener('click', () => this.resetMaster());
 
         // Loudness tab
-        this.elements.loudnessBrowseBtn.addEventListener('click', () => {
-            this.elements.loudnessInput.click();
-        });
-        this.elements.loudnessInput.addEventListener('change', (e) => {
-            this.handleLoudnessFileSelect(e.target.files[0]);
-        });
+        this.elements.loudnessBrowseBtn.addEventListener('click', () => this.elements.loudnessInput.click());
+        this.elements.loudnessInput.addEventListener('change', (e) => this.handleLoudnessFileSelect(e.target.files[0]));
         this.elements.loudnessUploadBox.addEventListener('dragover', (e) => {
             e.preventDefault();
             this.elements.loudnessUploadBox.classList.add('dragover');
@@ -378,9 +373,23 @@ class MIDIAnalysisApp {
             this.elements.loudnessUploadBox.classList.remove('dragover');
             if (e.dataTransfer.files.length > 0) this.handleLoudnessFileSelect(e.dataTransfer.files[0]);
         });
+        this.elements.loudnessAnalyzeBtn.addEventListener('click', () => this.submitLoudnessAnalysis());
+        this.elements.loudnessChooseAnotherLink.addEventListener('click', (e) => { e.preventDefault(); this.resetLoudness(); });
         this.elements.loudnessNormalizeBtn.addEventListener('click', () => this.submitLoudness());
         this.elements.loudnessResetBtn.addEventListener('click', () => this.resetLoudness());
         this.elements.loudnessRetryBtn.addEventListener('click', () => this.resetLoudness());
+
+        // Loudness mode toggle (Normalize / Remove Clipping)
+        this._loudnessMode = 'normalize';
+        document.querySelectorAll('.loudness-mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this._loudnessMode = btn.dataset.mode;
+                document.querySelectorAll('.loudness-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+                document.getElementById('loudnessNormalizeOptions').style.display = this._loudnessMode === 'normalize' ? '' : 'none';
+                document.getElementById('loudnessDeclipOptions').style.display    = this._loudnessMode === 'declip'    ? '' : 'none';
+            });
+        });
+        document.getElementById('loudnessDeclipBtn').addEventListener('click', () => this.submitDeclip());
 
         // Sheet tab
         this.elements.sheetBrowseBtn.addEventListener('click', () => this.elements.sheetInput.click());
@@ -915,6 +924,59 @@ class MIDIAnalysisApp {
         }
     }
 
+    _renderBassTimeline(containerId, timeline, durationSec) {
+        const el = document.getElementById(containerId);
+        const card = document.getElementById('bassMovementCard');
+        if (!el) return;
+
+        const active = (timeline || []).filter(s => s.note !== null);
+        if (!active.length || !durationSec) {
+            if (card) card.style.display = 'none';
+            return;
+        }
+
+        const NOTE_COLORS = {
+            'C':  '#4a9eff', 'C#': '#00cfff',
+            'D':  '#00e8d0', 'D#': '#20c997',
+            'E':  '#6fcf97', 'F':  '#a8e063',
+            'F#': '#f0c040', 'G':  '#ff9a30',
+            'G#': '#ff6b6b', 'A':  '#ff4ecd',
+            'A#': '#c080ff', 'B':  '#8090ff',
+        };
+
+        // Collect unique notes; use representative midi for sorting (high → top)
+        const noteMap = new Map(); // note name → highest midi seen
+        for (const seg of active) {
+            if (seg.midi != null && (!noteMap.has(seg.note) || seg.midi > noteMap.get(seg.note))) {
+                noteMap.set(seg.note, seg.midi);
+            }
+        }
+        const sortedNotes = [...noteMap.entries()]
+            .sort((a, b) => b[1] - a[1])   // descending pitch = high at top
+            .map(([note]) => note);
+
+        // Build one row per unique note
+        el.className = 'bass-pitch-grid';
+        el.innerHTML = sortedNotes.map(noteName => {
+            const color = NOTE_COLORS[noteName] || '#888';
+            const segs  = timeline.map(seg => {
+                const w = ((seg.end - seg.start) / durationSec * 100).toFixed(3);
+                if (seg.note === noteName) {
+                    const title = `${noteName}  (${seg.start.toFixed(1)}s – ${seg.end.toFixed(1)}s)`;
+                    return `<div class="bass-grid-seg bass-grid-seg--on" style="width:${w}%;background:${color}30;border-color:${color}80;" title="${title}"></div>`;
+                }
+                return `<div class="bass-grid-seg" style="width:${w}%;"></div>`;
+            }).join('');
+
+            return `<div class="bass-grid-row">` +
+                   `<div class="bass-grid-label" style="color:${color};">${noteName}</div>` +
+                   `<div class="bass-grid-track">${segs}</div>` +
+                   `</div>`;
+        }).join('');
+
+        if (card) card.style.display = '';
+    }
+
     _renderStereoCone(containerId, widthPct) {
         const el = document.getElementById(containerId);
         if (!el) return;
@@ -928,16 +990,16 @@ class MIDIAnalysisApp {
         el.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}">
             <defs>
                 <linearGradient id="coneGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%"   stop-color="rgba(0,80,180,0.25)"/>
-                    <stop offset="50%"  stop-color="rgba(200,150,12,0.45)"/>
-                    <stop offset="100%" stop-color="rgba(0,80,180,0.25)"/>
+                    <stop offset="0%"   stop-color="rgba(0,120,220,0.20)"/>
+                    <stop offset="50%"  stop-color="rgba(0,212,255,0.45)"/>
+                    <stop offset="100%" stop-color="rgba(0,120,220,0.20)"/>
                 </linearGradient>
             </defs>
             <polygon points="${pts}"
                 fill="url(#coneGrad)"
-                stroke="rgba(200,150,12,0.55)" stroke-width="1" stroke-linejoin="round"/>
+                stroke="rgba(0,212,255,0.55)" stroke-width="1" stroke-linejoin="round"/>
             <line x1="${cx}" y1="0" x2="${cx}" y2="${H}"
-                stroke="rgba(200,150,12,0.18)" stroke-width="1" stroke-dasharray="3,4"/>
+                stroke="rgba(0,212,255,0.18)" stroke-width="1" stroke-dasharray="3,4"/>
         </svg>`;
         el.style.display = 'block';
     }
@@ -1064,7 +1126,6 @@ class MIDIAnalysisApp {
             return;
         }
         this.audioFile = file;
-        this.elements.audioPreview.style.display = 'none';
         this.elements.audioUploadBox.style.display = 'none';
         this.elements.audioFileName.textContent = `${file.name} (${this.formatFileSize(file.size)})`;
         this.elements.audioFileName.style.display = 'block';
@@ -1245,18 +1306,82 @@ class MIDIAnalysisApp {
 
     handleLoudnessFileSelect(file) {
         if (!file) return;
-        if (!/\.(wav|aif|aiff|flac)$/i.test(file.name)) {
-            this.showLoudnessError('Please select a WAV, AIFF, or FLAC file.');
+        if (!/\.(wav|aif|aiff|flac|ogg|mp3)$/i.test(file.name)) {
+            this.showLoudnessError('Please select a WAV, AIFF, FLAC, OGG, or MP3 file.');
             return;
         }
         this.loudnessFile = file;
-        this.elements.loudnessPreview.style.display = 'none';
-        this.elements.loudnessUploadBox.style.display = 'none';
-        this.elements.loudnessFileName.textContent    = file.name;
-        this.elements.loudnessFileName.style.display  = 'block';
-        this.elements.loudnessPlatformSection.style.display = 'flex';
-        this.elements.loudnessResult.style.display    = 'none';
+        this.elements.loudnessUploadBox.style.display      = 'none';
+        this.elements.loudnessFileName.textContent         = `${file.name} (${this.formatFileSize(file.size)})`;
+        this.elements.loudnessFileName.style.display       = 'block';
+        this.elements.loudnessAnalyzeBtn.style.display     = 'block';
+        this.elements.loudnessChooseAnotherLink.style.display = 'block';
+        this.elements.loudnessAnalysisSection.style.display = 'none';
+        this.elements.loudnessResult.style.display         = 'none';
         this.hideLoudnessError();
+    }
+
+    async submitLoudnessAnalysis() {
+        if (!this.loudnessFile) return;
+
+        const formData = new FormData();
+        formData.append('audio', this.loudnessFile);
+
+        this.showGlobalLoading('Analyzing loudness…');
+        this.elements.loudnessAnalyzeBtn.disabled = true;
+        this.hideLoudnessError();
+
+        try {
+            const resp = await fetch('/api/analyze-loudness', { method: 'POST', body: formData });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Analysis failed');
+
+            const loud   = data.loudness   || {};
+            const struct = data.structure  || {};
+
+            // File info
+            document.getElementById('lAnalysisFile').textContent     = data.file;
+            document.getElementById('lAnalysisDuration').textContent = this.formatDuration(data.duration_seconds);
+            document.getElementById('lAnalysisSR').textContent       = `${(data.sample_rate || 0).toLocaleString()} Hz`;
+            document.getElementById('lAnalysisChannels').textContent = data.channels === 1 ? 'Mono' : 'Stereo';
+
+            // Loudness stats
+            const fmtL = (v, u) => v == null ? 'N/A' : `${v} ${u}`;
+            document.getElementById('lResLUFS').textContent     = fmtL(loud.integrated_lufs,   'LUFS');
+            document.getElementById('lResSTLUFS').textContent   = fmtL(loud.short_term_lufs,   'LUFS');
+            document.getElementById('lResTruePeak').textContent = fmtL(loud.true_peak_dbtp,    'dBTP');
+            document.getElementById('lResRMS').textContent      = fmtL(loud.rms_db,            'dB');
+            document.getElementById('lResCrest').textContent    = fmtL(loud.crest_factor_db,   'dB');
+            document.getElementById('lResDR').textContent       = fmtL(loud.dynamic_range_dr,  'DR');
+            document.getElementById('lResPeak').textContent     = struct.peak_energy_time_sec != null
+                ? `${struct.peak_energy_time_sec}s` : 'N/A';
+            document.getElementById('lResDensity').textContent  = struct.density_onsets_per_sec != null
+                ? `${struct.density_onsets_per_sec} onsets/s` : 'N/A';
+
+            // Energy curve with clipping map
+            this._renderEnergyCurve(
+                'lEnergyCurve',
+                struct.energy_curve || [],
+                struct.sections     || [],
+                data.duration_seconds || 0,
+                struct.clipping_map   || []
+            );
+
+            // Clipping warning
+            const clipBar = document.getElementById('lClipActionsBar');
+            if (clipBar) clipBar.style.display = struct.clipping_detected ? '' : 'none';
+
+            // Show analysis section; hide analyze button
+            this.elements.loudnessAnalyzeBtn.style.display      = 'none';
+            this.elements.loudnessChooseAnotherLink.style.display = 'none';
+            this.elements.loudnessAnalysisSection.style.display  = '';
+
+        } catch (err) {
+            this.showLoudnessError(err.message);
+        } finally {
+            this.hideGlobalLoading();
+            this.elements.loudnessAnalyzeBtn.disabled = false;
+        }
     }
 
     async submitLoudness() {
@@ -1299,15 +1424,61 @@ class MIDIAnalysisApp {
         }
     }
 
+    async submitDeclip() {
+        if (!this.loudnessFile) return;
+
+        const formData = new FormData();
+        formData.append('audio', this.loudnessFile);
+
+        this.showGlobalLoading('Removing clipping…');
+        document.getElementById('loudnessDeclipBtn').disabled = true;
+        this.hideLoudnessError();
+
+        try {
+            const resp = await fetch('/api/declip', { method: 'POST', body: formData });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Declip failed');
+
+            const fmt = v => v == null ? '—' : `${v > 0 ? '+' : ''}${v} dBFS`;
+            document.getElementById('lBefore-lufs').textContent = '—';
+            document.getElementById('lAfter-lufs').textContent  = '—';
+            document.getElementById('lBefore-peak').textContent = fmt(data.before_peak);
+            document.getElementById('lAfter-peak').textContent  = fmt(data.after_peak);
+            document.getElementById('lGainApplied').textContent = '—';
+
+            document.querySelector('.loudness-done-title').textContent = 'Clipping Removed';
+            this.elements.loudnessResultMsg.textContent = this.loudnessFile.name;
+            this.elements.loudnessClampedMsg.style.display = 'none';
+
+            this.elements.loudnessDownloadLink.href     = `/api/loudness/download/${data.job_id}`;
+            this.elements.loudnessDownloadLink.download = data.download_name;
+
+            this.elements.loudnessPlatformSection.style.display = 'none';
+            this.elements.loudnessResult.style.display = 'block';
+        } catch (err) {
+            this.showLoudnessError(err.message);
+        } finally {
+            this.hideGlobalLoading();
+            document.getElementById('loudnessDeclipBtn').disabled = false;
+        }
+    }
+
     resetLoudness() {
         this.loudnessFile = null;
-        this.elements.loudnessPreview.style.display   = '';
-        this.elements.loudnessUploadBox.style.display = '';
-        this.elements.loudnessInput.value             = '';
-        this.elements.loudnessFileName.style.display  = 'none';
-        this.elements.loudnessFileName.textContent    = '';
-        this.elements.loudnessPlatformSection.style.display = 'none';
-        this.elements.loudnessResult.style.display    = 'none';
+        this.elements.loudnessInput.value                     = '';
+        this.elements.loudnessUploadBox.style.display         = '';
+        this.elements.loudnessFileName.style.display          = 'none';
+        this.elements.loudnessFileName.textContent            = '';
+        this.elements.loudnessAnalyzeBtn.style.display        = 'none';
+        this.elements.loudnessChooseAnotherLink.style.display = 'none';
+        this.elements.loudnessAnalysisSection.style.display   = 'none';
+        this.elements.loudnessResult.style.display            = 'none';
+        // Reset mode toggle to normalize
+        this._loudnessMode = 'normalize';
+        document.querySelectorAll('.loudness-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'normalize'));
+        document.getElementById('loudnessNormalizeOptions').style.display = '';
+        document.getElementById('loudnessDeclipOptions').style.display    = 'none';
+        document.querySelector('.loudness-done-title').textContent = 'Normalization Complete';
         this.hideLoudnessError();
     }
 
@@ -1329,7 +1500,6 @@ class MIDIAnalysisApp {
             return;
         }
         this.sheetFile = file;
-        this.elements.sheetPreview.style.display = 'none';
         this.elements.sheetUploadBox.style.display = 'none';
         this.elements.sheetFileName.textContent   = file.name;
         this.elements.sheetFileName.style.display = 'block';
@@ -1382,7 +1552,6 @@ class MIDIAnalysisApp {
 
     resetSheet() {
         this.sheetFile = null;
-        this.elements.sheetPreview.style.display     = '';
         this.elements.sheetUploadBox.style.display  = '';
         this.elements.sheetInput.value              = '';
         this.elements.sheetFileName.style.display   = 'none';
@@ -1518,7 +1687,6 @@ class MIDIAnalysisApp {
             return;
         }
         this.specFile = file;
-        this.elements.spectrogramPreview.style.display = 'none';
         this.elements.specUploadBox.style.display = 'none';
         this.elements.specFileName.textContent   = `${file.name} (${this.formatFileSize(file.size)})`;
         this.elements.specFileName.style.display = 'block';
@@ -1545,8 +1713,11 @@ class MIDIAnalysisApp {
             this.elements.specResFilename.textContent = data.filename;
             this.elements.specResDuration.textContent = this.formatDuration(data.duration);
             this.elements.specResSR.textContent       = `${data.sample_rate.toLocaleString()} Hz`;
+            this.elements.specFileName.style.display   = 'none';
+            this.elements.specAnalyzeBtn.style.display = 'none';
             this.elements.spectrogramResult.style.display = 'block';
             this._renderSpectrogram(data);
+            this.elements.spectrogramResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (err) {
             this.showSpecError(err.message);
         } finally {
@@ -1559,6 +1730,19 @@ class MIDIAnalysisApp {
         const canvas = this.elements.spectrogramCanvas;
         const ctx    = canvas.getContext('2d');
         const { frames, bins, data_b64, duration, fmax } = result;
+
+        // Layout constants — set canvas dimensions first so canvas is always sized
+        const W     = this.elements.spectrogramWrap.offsetWidth || 800;
+        const H     = 340;
+        const PAD_L = 52;
+        const PAD_R = 70;
+        const PAD_T = 10;
+        const PAD_B = 34;
+        const specW = W - PAD_L - PAD_R;
+        const specH = H - PAD_T - PAD_B;
+
+        canvas.width  = W;
+        canvas.height = H;
 
         // Decode base64 → Uint8Array (bins × frames, row 0 = highest freq)
         const bstr = atob(data_b64);
@@ -1592,19 +1776,6 @@ class MIDIAnalysisApp {
             lut[v * 3 + 1] = Math.round(g);
             lut[v * 3 + 2] = Math.round(b);
         }
-
-        // Layout constants
-        const W       = this.elements.spectrogramWrap.offsetWidth || 800;
-        const H       = 340;
-        const PAD_L   = 52;
-        const PAD_R   = 70;
-        const PAD_T   = 10;
-        const PAD_B   = 34;
-        const specW   = W - PAD_L - PAD_R;
-        const specH   = H - PAD_T - PAD_B;
-
-        canvas.width  = W;
-        canvas.height = H;
 
         // Background
         ctx.fillStyle = '#020508';
@@ -1711,7 +1882,6 @@ class MIDIAnalysisApp {
     resetSpectrogram() {
         this.specFile = null;
         this._lastSpectrogramData = null;
-        this.elements.spectrogramPreview.style.display = '';
         this.elements.specUploadBox.style.display      = '';
         this.elements.specInput.value                  = '';
         this.elements.specFileName.style.display       = 'none';
@@ -1908,16 +2078,7 @@ class MIDIAnalysisApp {
             }
         }
 
-        // Loudness
-        const loud = r.loudness || {};
-        if (!loud.error) {
-            this._set('aResLUFS',   loud.integrated_lufs  != null ? `${loud.integrated_lufs} LUFS` : 'N/A');
-            this._set('aResSTLUFS', loud.short_term_lufs  != null ? `${loud.short_term_lufs} LUFS` : 'N/A');
-            this._set('aResTruePeak', loud.true_peak_dbtp  != null ? `${loud.true_peak_dbtp} dBTP` : 'N/A');
-            this._set('aResRMS',    loud.rms_db           != null ? `${loud.rms_db} dB`   : 'N/A');
-            this._set('aResCrest',  loud.crest_factor_db  != null ? `${loud.crest_factor_db} dB`   : 'N/A');
-            this._set('aResDR',     loud.dynamic_range_dr != null ? `DR ${loud.dynamic_range_dr}`  : 'N/A');
-        }
+        // Loudness fields live in the Loudness tab now — not populated here
 
         // Frequency bands
         const freq = r.frequency || {};
@@ -1953,14 +2114,7 @@ class MIDIAnalysisApp {
             this._set('aResSub',       bass.sub_consistency  || 'N/A');
         }
 
-        // Structure
-        const struct = r.structure || {};
-        if (!struct.error) {
-            this._set('aResPeak',    struct.peak_energy_time_sec != null ? `${struct.peak_energy_time_sec}s` : 'N/A');
-            this._set('aResDensity', struct.density_onsets_per_sec != null ? `${struct.density_onsets_per_sec} onsets/s` : 'N/A');
-            this._renderEnergyCurve('energyCurve', struct.energy_curve || [], struct.sections || [], r.duration_seconds || 0);
-            this._renderSections('sectionsList', struct.sections || []);
-        }
+        // Structure/energy fields live in the Loudness tab now — not populated here
 
         // Optional
         const opt = r.optional || {};
@@ -1976,6 +2130,13 @@ class MIDIAnalysisApp {
 
         // Radar charts — built last so all data sections are populated
         this._buildRadarCharts(r);
+
+        // Bass movement timeline
+        this._renderBassTimeline('bassTimeline', r.bass_timeline || [], r.duration_seconds || 0);
+
+        // Surface stereo in Spectrogram tab
+        const stereoSection = document.getElementById('audioAnalysisStereoSection');
+        if (stereoSection) stereoSection.style.display = '';
 
         requestAnimationFrame(() => {
             this.elements.audioResultsSection.querySelector('.results-container').scrollIntoView({ behavior: 'smooth' });
@@ -2174,15 +2335,26 @@ class MIDIAnalysisApp {
         el.innerHTML = rows;
     }
 
-    _renderEnergyCurve(containerId, curve, sections = [], durationSec = 0) {
+    _renderEnergyCurve(containerId, curve, sections = [], durationSec = 0, clippingMap = []) {
         if (!curve.length) return;
         const el = document.getElementById(containerId);
         if (!el) return;
 
         const max = Math.max(...curve, 0.001);
-        const bars = curve.map(v => {
-            const h = Math.max(2, Math.round(v / max * 100));
-            return `<div class="energy-bar" style="height:${h}%"></div>`;
+
+        // Spike detection: flag bars where the frame-to-frame energy change
+        // exceeds mean_delta + 2 * std_delta (statistically unusual jumps).
+        const deltas = curve.map((v, i) => i === 0 ? 0 : Math.abs(v - curve[i - 1]));
+        const meanD  = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+        const stdD   = Math.sqrt(deltas.map(d => (d - meanD) ** 2).reduce((a, b) => a + b, 0) / deltas.length);
+        const spikeThreshold = meanD + 2 * stdD;
+
+        const bars = curve.map((v, i) => {
+            const h       = Math.max(2, Math.round(v / max * 100));
+            const classes = ['energy-bar'];
+            if (deltas[i] >= spikeThreshold) classes.push('spike');
+            if (clippingMap[i])              classes.push('clip');
+            return `<div class="${classes.join(' ')}" style="height:${h}%"></div>`;
         }).join('');
 
         // Build section overlays if we have boundary data
@@ -2214,13 +2386,15 @@ class MIDIAnalysisApp {
     }
 
     _renderSections(containerId, sections) {
+        const el = document.getElementById(containerId);
+        if (!el) return;
         const html = sections.map(s =>
             `<div class="change-item">
                 <div class="measure">${s.label}</div>
                 <div class="change-detail">${s.time_range} — avg energy ${s.energy_pct}%</div>
             </div>`
         ).join('');
-        document.getElementById(containerId).innerHTML = html;
+        el.innerHTML = html;
     }
 
     // ── Radar charts ─────────────────────────────────────────────────────────
@@ -2315,11 +2489,14 @@ class MIDIAnalysisApp {
         this._radarCharts = {};
         const card = document.getElementById('audioRadarCard');
         if (card) card.style.display = 'none';
+        const bassCard = document.getElementById('bassMovementCard');
+        if (bassCard) bassCard.style.display = 'none';
+        const stereoSection = document.getElementById('audioAnalysisStereoSection');
+        if (stereoSection) stereoSection.style.display = 'none';
         document.querySelector('#audioTab .upload-section').style.display = 'block';
         this.elements.audioResultsSection.style.display = 'none';
         this.hideAudioError();
         this.elements.audioInput.value = '';
-        this.elements.audioPreview.style.display = '';
         this.elements.audioUploadBox.style.display = '';
         this.elements.audioFileName.style.display = 'none';
         this.elements.audioAnalyzeBtn.style.display = 'none';
